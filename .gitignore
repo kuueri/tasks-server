@@ -1,0 +1,49 @@
+# compiled output
+/tmp
+/resources/**/*.json
+/resources/**/*.txt
+/resources/**/*.pem
+/resources/**/*.crt
+/resources/**/*.key
+/node_modules
+/dist
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+/.nyc_output
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode
+
+# Env
+*.env
+!*.example.env
+
+# Unused
+note.txt
+note.*.txt
+resource/config/*.conf
+resource/config/*.json
+resource/credential/*.json
+!resource/config/config.example.json

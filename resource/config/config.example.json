@@ -1,0 +1,31 @@
+{
+  "PORT": 8200,
+  "LEVEL": "DEVELOPMENT",
+  "MODULE": {
+    "HTTP": {
+      "MAX_BODY_LENGTH": 131072,
+      "MAX_CONTENT_LENGTH": 131072
+    },
+    "THROTTLER": {
+      "TTL": 86400,
+      "LIMIT": 1000
+    }
+  },
+  "SERVICE": {
+    "QUEUE": {
+      "LIMIT": 1000
+    },
+    "CRYPTO": {
+      "KEY": ""
+    }
+  },
+  "DATABASE": {
+    "REDIS": {
+      "HOST": "",
+      "PORT": 6379,
+      "USERNAME": "",
+      "PASSWORD": "",
+      "EXPIRATION_KEY": 259200
+    }
+  }
+}

@@ -1,0 +1,12 @@
+resource/config/*.conf
+resource/config/*.json
+node_modules
+
+Dockerfile*
+docker-compose*
+
+*.log
+*.txt
+
+.git
+.gitignore
