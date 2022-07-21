@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 
 import { defer, exhaustMap, finalize, identity, map, Observable, repeat, retry, switchMap, tap, timer } from "rxjs";
-import { defaults, defer as deferAsLodash, isEmpty, toSafeInteger, toString } from "lodash";
+import { defaults, defer as deferAsLodash, inRange, isEmpty, toSafeInteger, toString } from "lodash";
 import { addMilliseconds, differenceInMilliseconds, isFuture } from "date-fns";
 import { createWriteStream } from "fs";
 import { randomBytes } from "crypto";
@@ -146,10 +146,21 @@ export class SubscriptionService implements OnApplicationBootstrap {
       const today = Date.now();
       queued.estimateExecAt = 0;
       queued.estimateEndAt = today;
+
+      if (inRange(queued.statusCode, 200, 300)) {
+        queued.state = "COMPLETED";
+      }
+      if (inRange(queued.statusCode, 400, 600)) {
+        queued.state = "ERROR";
+      }
+
+      if (!queued.currentlyRepeat && !queued.currentlyRetry) {
+        queued.statusCode = 0;
+        queued.state = "CANCELED";
+      }
+
       queued.currentlyRepeat = false;
       queued.currentlyRetry = false;
-      queued.statusCode = 0;
-      queued.state = "CANCELED";
 
       const BATCH = this.redis.pipeline();
 
