@@ -1,5 +1,9 @@
 version: "3.9"
 
+# networks:
+#   default:
+#     name: tasks-network
+
 services:
   redis:
     container_name: redis-server
@@ -9,3 +13,16 @@ services:
       - 6379:6379
     volumes:
       - ./resource/config/redis.conf:/usr/local/etc/redis/redis.conf
+    # networks:
+    #   - tasks-network
+  # tasks:
+  #   build: .
+  #   container_name: tasks-server
+  #   command: node dist/main.js
+  #   image: tasks:latest
+  #   ports:
+  #     - 8200:8200
+  #   networks:
+  #     - tasks-network
+  #   depends_on:
+  #     - redis
