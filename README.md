@@ -1,5 +1,6 @@
 <div align="center">
   <h1>Kuueri Tasks Server</h1>
+  <i>Path version /v1beta</i>
 </div>
 
 
@@ -31,12 +32,12 @@ save 3600 1
 save 300 100
 save 60 10000
 ```
-5. Untuk saat ini, **Kuueri Tasks** belum mendukung *multiple instance* dan hanya menggunakan 1 core CPU ketika di deploy
+5. **Kuueri Tasks** belum mendukung *multiple instance*, hanya menggunakan 1 core CPU ketika di deploy
 
 
 ### Fitur
 1. *HTTP target*
-    - Mengksekusi menggunakan HTTP API
+    - Mengeksekusi menggunakan HTTP API
 2. *Retry/Repeat mechanism*
     - *Retry*: Mengeksekusi kembali ketika mendapatkan respon error
     - *Repeat*: Mengeksekusi kembali ketika mendapatkan respon sukses
@@ -56,10 +57,10 @@ save 60 10000
     - buat file `redis.conf` di `./resource/config/` - *optional*
 3. Install **Redis** `docker-compose -f ./docker-compose.yml up -d`. Gunakan `/bin/sh` untuk masuk ke OS
 4. Proses *development* `npm run dev`. Untuk proses *build* `npm run build`
-5. Proses registrasi ke `/v1beta/register` dengan method `POST` dan masukkan body `{ email: [YOUR EMAIL] }`
-6. Atur *request headers* *authorization*
-    - buat header `authorization: Bearer [TOKEN]`
-    - buat header `x-kuueri-tasks-project: [PROJECT ID]`
+5. Proses registrasi ke `/[VERSION]/register` `POST` masukkan body `{ email: [YOUR EMAIL] }`
+6. Atur permintaan *headers*
+    - buat *headers* `authorization: Bearer [TOKEN]`
+    - buat *headers* `x-kuueri-tasks-project: [PROJECT ID]`
 
 
 ### Langkah Lanjutan
@@ -68,33 +69,31 @@ Terdapat dependensi tambahan `@google-cloud/secret-manager` pada **Kuueri Tasks 
 ***Jika **Kuueri Tasks Server** di deploy ke VM, abaikan `.docker.env` masukkan `TASKS_KEY_FILENAME` dan `TASKS_VERSION` ke dalam `~/.bashrc`
 
 
-### Dokumentasi dan *API Reference*
-*Path version* saat ini `/v1beta`
-
+### Dokumentasi *API Reference*
 *Project module*:
-- `/:version/info` **`GET`** - Mendapatkan info projek
-- `/:version/register` **`POST`** - Registrasi **Kuueri Tasks** projek
+- `/[VERSION]/info` **`GET`** - Mendapatkan info *project*
+- `/[VERSION]/register` **`POST`** - Registrasi **Kuueri Tasks** *project*
 
 *Subscription module*:
-- `/:version/queues/:id` **`GET`** - Mendapatkan informasi eksekusi
-- `/:version/queues/:id` **`DELETE`** - Menghapus riwayat informasi eksekusi
-- `/:version/queues/:id/timeline` **`GET`** - Mendapatkan informasi *timeline* eksekusi
-- `/:version/subscribe` **`POST`** - Registrasi eksekusi
-- `/:version/pause/:id` **`PATCH`** - Berhenti sejenak eksekusi
-- `/:version/resume/:id` **`PATCH`** - Melanjutkan eksekusi
-- `/:version/unsubscribe/:id` **`PATCH`** - Membatalkan eksekusi
+- `/[VERSION]/queues/[QUEUE ID]` **`GET`** - Mendapatkan informasi eksekusi
+- `/[VERSION]/queues/[QUEUE ID]` **`DELETE`** - Menghapus riwayat informasi eksekusi
+- `/[VERSION]/queues/[QUEUE ID]/timeline` **`GET`** - Mendapatkan informasi *timeline* eksekusi
+- `/[VERSION]/subscribe` **`POST`** - Registrasi eksekusi
+- `/[VERSION]/pause/[QUEUE ID]` **`PATCH`** - Memberhentikan sejenak eksekusi
+- `/[VERSION]/resume/[QUEUE ID]` **`PATCH`** - Melanjutkan eksekusi
+- `/[VERSION]/unsubscribe/[QUEUE ID]` **`PATCH`** - Membatalkan eksekusi
 
 ***Untuk dokumentasi selanjutnya masih dalam proses...
 
 
 ### Ekosistem
 1. Kuueri Tasks Server
-2. Kuueri Tasks Client-Testing - *soon*
+2. Kuueri Tasks WebAppTesting - *soon*
 
 
 ### Catatan Penting
-1. Jangan lakukan permintaan ke **Kuueri Tasks** dari sisi *client*. Lakukan permintaan disisi server/backend
-2. Secara default, terdapat limitasi panjang antrian *(task in queue)* sebanyak `1000`. Atur sesuai kebutuhan dan spesifikasi server kamu agar tidak terjadi *memory leak*
+1. Setiap permintaan ke **Kuueri Tasks** terdapat proses *authorization*. Jangan lakukan permintaan dari sisi *client/frontend*
+2. Secara default, terdapat limitasi panjang antrian *(task in queue)* sebanyak `1000`
 3. Ketika masuk ke **Redis** database, hindari permintaan seperti: `FLUSHALL` `FLUSHDB` `SHUTDOWN` `CONFIG` `BGREWRITEAOF` `BGSAVE` `RENAME` `DEBUG`. Gunakan [Redis ACL](https://redis.io/docs/manual/security/acl/) untuk mengatur *role user*
 
 
