@@ -339,9 +339,25 @@ export class SubscriptionService implements OnApplicationBootstrap {
         };
 
         if (recordQueue.currentlyRepeat) {
+          tasks.httpRequest.headers = {
+            ...tasks.httpRequest.headers,
+            "X-Kuueri-Tasks-Queue": queuedId,
+            "X-Kuueri-Tasks-Repeat-Count": recordQueueConf.repeatCount.toString(),
+            "X-Kuueri-Tasks-Currently-Repeat": recordQueueConf.repeatCount === recordQueueConf.repeatLimit
+              ? "false"
+              : "true"
+          };
           tasks.config.repeat = Math.abs(tasks.config.repeat - recordQueueConf.finalizeRepeat);
         }
         if (recordQueue.currentlyRetry) {
+          tasks.httpRequest.headers = {
+            ...tasks.httpRequest.headers,
+            "X-Kuueri-Tasks-Queue": queuedId,
+            "X-Kuueri-Tasks-Retry-Count": recordQueueConf.retryCount.toString(),
+            "X-Kuueri-Tasks-Currently-Retry": recordQueueConf.retryCount === recordQueueConf.retryLimit
+              ? "false"
+              : "true"
+          };
           tasks.config.retry = Math.abs(tasks.config.retry - recordQueueConf.finalizeRetry);
         }
 
@@ -557,35 +573,27 @@ export class SubscriptionService implements OnApplicationBootstrap {
       subscription: timer(dueDateTimer).pipe(
         // Map to inner observable, ignore other values until that observable completes
         exhaustMap(() => {
-          if ("headers" in data.httpRequest) {
-            // @ts-ignore
-            delete headers["user-agent"];
-            // @ts-ignore
-            delete headers["User-Agent"];
-          }
-          const httpConf = {
+          let httpConf = {
             url: data.httpRequest.url,
             data: data.httpRequest?.data,
             method: data.httpRequest.method,
             params: data.httpRequest?.params,
-            headers: {
-              ...data.httpRequest?.headers,
-              "User-Agent": "Kuueri-Tasks"
-            },
+            headers: { ...data.httpRequest?.headers, "User-Agent": "Kuueri-Tasks" } as { [f: string]: string },
             timeout: data.config.timeout
           };
 
-          let firstNext = true;
-          let firstError = true;
+          let isFirstNext = true;
+          let isFirstError = true;
 
           // Generates HTTP response Observable as output
-          const http$ = this.http.request(httpConf).pipe(
+          // Make an Observable for each new Observer
+          const http$ = defer(() => this.http.request(httpConf)).pipe(
             // Perform actions or side-effects, such as logging
             tap({
               // A next handler or partial observer
               // On first complete
               next: async response => {
-                if (firstNext) {
+                if (isFirstNext) {
                   this.stackQueued[i - 1].currentlyRepeat = true;
                   this.stackQueued[i - 1].currentlyRetry = false;
                   this.stackQueued[i - 1].statusCode = response.status;
@@ -603,15 +611,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
                       BATCH_NEXT_REPEAT_COUNT.hget(this.DB_2(queuedId, option.pId), "finalizeRepeat");
 
                       const vBATCH_NEXT_REPEAT_COUNT = await BATCH_NEXT_REPEAT_COUNT.exec();
-                      const finalizeRepeat = toSafeInteger(vBATCH_NEXT_REPEAT_COUNT![1][1]);
+                      const repeatCount = toSafeInteger(vBATCH_NEXT_REPEAT_COUNT![1][1]) + 1;
 
                       BATCH_NEXT_REPEAT.select(3);
                       BATCH_NEXT_REPEAT.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                         label: "Repeat",
-                        description: "Success with status code " + this.stackQueued[i - 1].statusCode,
+                        description: "Success with status code " + response.status,
                         createdAt: Date.now(),
                         metadata: {
-                          repeatCount: finalizeRepeat + 1
+                          repeatCount
                         }
                       }));
                     }
@@ -635,12 +643,12 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     this.logger.log("Queued:" + queuedId + ":INITIAL");
                   }
 
-                  firstNext = false;
+                  isFirstNext = false;
                 }
               },
               // On first error
               error: async e => {
-                if (firstError) {
+                if (isFirstError) {
                   const statusCode = this.util.toStatusCode(e);
 
                   this.stackQueued[i - 1].currentlyRepeat = false;
@@ -660,15 +668,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
                       BATCH_ERROR_RETRY_COUNT.hget(this.DB_2(queuedId, option.pId), "finalizeRetry");
 
                       const vBATCH_ERROR_RETRY_COUNT = await BATCH_ERROR_RETRY_COUNT.exec();
-                      const finalizeRetry = toSafeInteger(vBATCH_ERROR_RETRY_COUNT![1][1]);
+                      const retryCount = toSafeInteger(vBATCH_ERROR_RETRY_COUNT![1][1]) + 1;
 
                       BATCH_ERROR_RETRY.select(3);
                       BATCH_ERROR_RETRY.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                         label: "Retry",
-                        description: "Error with status code " + this.stackQueued[i - 1].statusCode,
+                        description: "Error with status code " + statusCode,
                         createdAt: Date.now(),
                         metadata: {
-                          retryCount: finalizeRetry + 1
+                          retryCount
                         }
                       }));
                     }
@@ -677,7 +685,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
                       BATCH_ERROR_RETRY.select(3);
                       BATCH_ERROR_RETRY.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                         label: "Retry",
-                        description: "Error with status code " + this.stackQueued[i - 1].statusCode,
+                        description: "Error with status code " + statusCode,
                         createdAt: Date.now(),
                         metadata: {
                           retryAt: this.stackQueued[i - 1].estimateExecAt
@@ -692,7 +700,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     this.logger.error("Queued:" + queuedId + ":INITIAL");
                   }
 
-                  firstError = false;
+                  isFirstError = false;
                 }
               }
             }),
@@ -762,6 +770,16 @@ export class SubscriptionService implements OnApplicationBootstrap {
 
                             BATCH_END_RETRY_AT.exec();
 
+                            httpConf = {
+                              ...httpConf,
+                              headers: {
+                                ...httpConf.headers,
+                                "X-Kuueri-Tasks-Queue": queuedId,
+                                "X-Kuueri-Tasks-Retry-Count": "1",
+                                "X-Kuueri-Tasks-Currently-Retry": "false"
+                              }
+                            };
+
                             // Log timing on console
                             if (this.level === "DEVELOPMENT") {
                               this.logger.error("Queued:" + queuedId + ":C=" + 1 + ":D=" + retryInterval);
@@ -775,10 +793,14 @@ export class SubscriptionService implements OnApplicationBootstrap {
 
                     BATCH_RETRY_1.select(2);
                     BATCH_RETRY_1.hincrby(this.DB_2(queuedId, option?.pId!), "retryCount", 1);
+                    BATCH_RETRY_1.hget(this.DB_2(queuedId, option?.pId!), "retryLimit");
 
                     return defer(() => BATCH_RETRY_1.exec()).pipe(
-                      map(v => toSafeInteger(v![1][1])),
-                      switchMap(retryCount => {
+                      map(v => ({
+                        retryCount: toSafeInteger(v![1][1]),
+                        retryLimit: toSafeInteger(v![2][1])
+                      })),
+                      switchMap(({ retryCount, retryLimit }) => {
                         const dueMS = data.config.retryExponential
                           ? data.config.retryInterval * retryCount
                           : data.config.retryInterval;
@@ -829,6 +851,18 @@ export class SubscriptionService implements OnApplicationBootstrap {
                               }));
 
                               BATCH_END_RETRY.exec();
+
+                              httpConf = {
+                                ...httpConf,
+                                headers: {
+                                  ...httpConf.headers,
+                                  "X-Kuueri-Tasks-Queue": queuedId,
+                                  "X-Kuueri-Tasks-Retry-Count": retryCount.toString(),
+                                  "X-Kuueri-Tasks-Currently-Retry": retryCount === retryLimit
+                                    ? "false"
+                                    : "true"
+                                }
+                              };
 
                               if (this.level === "DEVELOPMENT") {
                                 if (data.config.retryExponential) {
@@ -904,6 +938,16 @@ export class SubscriptionService implements OnApplicationBootstrap {
 
                             BATCH_END_REPEAT_AT.exec();
 
+                            httpConf = {
+                              ...httpConf,
+                              headers: {
+                                ...httpConf.headers,
+                                "X-Kuueri-Tasks-Queue": queuedId,
+                                "X-Kuueri-Tasks-Repeat-Count": "1",
+                                "X-Kuueri-Tasks-Currently-Repeat": "false"
+                              }
+                            };
+
                             // Log timing on console
                             if (this.level === "DEVELOPMENT") {
                               this.logger.log("Queued:" + queuedId + ":C=" + 1 + ":D=" + repeatInterval);
@@ -917,10 +961,14 @@ export class SubscriptionService implements OnApplicationBootstrap {
 
                     BATCH_REPEAT_1.select(2);
                     BATCH_REPEAT_1.hincrby(this.DB_2(queuedId, option?.pId!), "repeatCount", 1);
+                    BATCH_REPEAT_1.hget(this.DB_2(queuedId, option?.pId!), "repeatLimit");
 
                     return defer(() => BATCH_REPEAT_1.exec()).pipe(
-                      map(v => toSafeInteger(v![1][1])),
-                      switchMap(repeatCount => {
+                      map(v => ({
+                        repeatCount: toSafeInteger(v![1][1]),
+                        repeatLimit: toSafeInteger(v![2][1])
+                      })),
+                      switchMap(({ repeatCount, repeatLimit }) => {
                         const dueMS = data.config.repeatExponential
                           ? data.config.repeatInterval * repeatCount
                           : data.config.repeatInterval;
@@ -971,6 +1019,18 @@ export class SubscriptionService implements OnApplicationBootstrap {
                               }));
 
                               BATCH_END_REPEAT.exec();
+
+                              httpConf = {
+                                ...httpConf,
+                                headers: {
+                                  ...httpConf.headers,
+                                  "X-Kuueri-Tasks-Queue": queuedId,
+                                  "X-Kuueri-Tasks-Repeat-Count": repeatCount.toString(),
+                                  "X-Kuueri-Tasks-Currently-Repeat": repeatCount === repeatLimit
+                                    ? "false"
+                                    : "true"
+                                }
+                              };
 
                               if (this.level === "DEVELOPMENT") {
                                 if (data.config.retryExponential) {
@@ -1249,11 +1309,20 @@ export class SubscriptionService implements OnApplicationBootstrap {
                   httpRequest: { ...metadata.httpRequest },
                   config: { ...metadata.config }
                 };
+
                 BATCH_3.select(2);
-                BATCH_3.hget(this.DB_2(queue.id, queue.pId), "finalizeRepeat", (e, r) => {
+                BATCH_3.hgetall(this.DB_2(queue.id, queue.pId), (e, r) => {
                   if (r) {
-                    const finalizeRepeat = toSafeInteger(r);
-                    tasks.config.repeat = Math.abs(tasks.config.repeat - finalizeRepeat);
+                    const recordQueueConf = this.util.toTypes(r) as unknown as RecordQueueConf;
+                    tasks.httpRequest.headers = {
+                      ...tasks.httpRequest.headers,
+                      "X-Kuueri-Tasks-Queue": queue.id,
+                      "X-Kuueri-Tasks-Repeat-Count": recordQueueConf.repeatCount.toString(),
+                      "X-Kuueri-Tasks-Currently-Repeat": recordQueueConf.repeatCount === recordQueueConf.repeatLimit
+                        ? "false"
+                        : "true"
+                    };
+                    tasks.config.repeat = Math.abs(tasks.config.repeat - recordQueueConf.finalizeRepeat);
                   }
                 });
 
@@ -1295,6 +1364,14 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     httpRequest: { ...metadata.httpRequest },
                     config: { ...metadata.config }
                   };
+
+                  tasks.httpRequest.headers = {
+                    ...tasks.httpRequest.headers,
+                    "X-Kuueri-Tasks-Queue": queue.id,
+                    "X-Kuueri-Tasks-Repeat-Count": "1",
+                    "X-Kuueri-Tasks-Currently-Repeat": "false"
+                  };
+
                   const diffMS = differenceInMilliseconds(tasks.config.repeatAt, Date.now());
                   tasks.config.executionDelay = diffMS;
 
@@ -1368,11 +1445,19 @@ export class SubscriptionService implements OnApplicationBootstrap {
                   httpRequest: { ...metadata.httpRequest },
                   config: { ...metadata.config }
                 };
+
                 BATCH_3.select(2);
-                BATCH_3.hget(this.DB_2(queue.id, queue.pId), "finalizeRetry", (e, r) => {
+                BATCH_3.hgetall(this.DB_2(queue.id, queue.pId), (e, r) => {
                   if (r) {
-                    const finalizeRetry = toSafeInteger(r);
-                    tasks.config.retry = Math.abs(tasks.config.retry - finalizeRetry);
+                    const recordQueueConf = this.util.toTypes(r) as unknown as RecordQueueConf;
+                    tasks.httpRequest.headers = {
+                      "X-Kuueri-Tasks-Queue": queue.id,
+                      "X-Kuueri-Tasks-Retry-Count": recordQueueConf.retryCount.toString(),
+                      "X-Kuueri-Tasks-Currently-Retry": recordQueueConf.retryCount === recordQueueConf.retryLimit
+                        ? "false"
+                        : "true"
+                    };
+                    tasks.config.retry = Math.abs(tasks.config.retry - recordQueueConf.finalizeRetry);
                   }
                 });
 
@@ -1413,6 +1498,13 @@ export class SubscriptionService implements OnApplicationBootstrap {
                   const tasks: TasksReq = {
                     httpRequest: { ...metadata.httpRequest },
                     config: { ...metadata.config }
+                  };
+
+                  tasks.httpRequest.headers = {
+                    ...tasks.httpRequest.headers,
+                    "X-Kuueri-Tasks-Queue": queue.id,
+                    "X-Kuueri-Tasks-Retry-Count": "1",
+                    "X-Kuueri-Tasks-Currently-Retry": "false"
                   };
 
                   const diffMS = differenceInMilliseconds(tasks.config.retryAt, Date.now());
