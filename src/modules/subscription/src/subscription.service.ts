@@ -548,7 +548,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
     );
   }
 
-  private register(data: TasksReq, option?: RegisterOption): Queued {
+  private register(data: TasksReq, option: RegisterOption): Queued {
     const today = Date.now();
     const queuedId = option?.id || randomBytes(4).toString("hex").toUpperCase() + today.toString();
     const todayAddMs = addMilliseconds(today, data.config.executionDelay).getTime();
@@ -559,7 +559,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
     // Returns the new length of the array
     const i = this.stackQueued.push({
       id: queuedId,
-      pId: option?.pId!,
+      pId: option.pId,
       state: "RUNNING",
       estimateEndAt: 0,
       estimateExecAt: !!data.config.executionAt
@@ -730,20 +730,20 @@ export class SubscriptionService implements OnApplicationBootstrap {
                       const BATCH_RETRY_AT = this.redis.pipeline();
 
                       BATCH_RETRY_AT.select(1);
-                      BATCH_RETRY_AT.hset(this.DB_1(queuedId, option?.pId!), {
+                      BATCH_RETRY_AT.hset(this.DB_1(queuedId, option.pId), {
                         currentlyRepeat: false,
                         currentlyRetry: true,
                         estimateExecAt: data.config.retryAt,
                         statusCode
                       });
                       BATCH_RETRY_AT.select(2);
-                      BATCH_RETRY_AT.hset(this.DB_2(queuedId, option?.pId!), {
+                      BATCH_RETRY_AT.hset(this.DB_2(queuedId, option.pId), {
                         estimateNextRepeatAt: 0,
                         estimateNextRetryAt: data.config.retryAt,
                         estimateExecAt: data.config.retryAt
                       });
                       BATCH_RETRY_AT.select(3);
-                      BATCH_RETRY_AT.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+                      BATCH_RETRY_AT.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                         label: "Error",
                         description: "Error with status code " + statusCode + ". Start retrying task execution",
                         createdAt: Date.now()
@@ -757,9 +757,9 @@ export class SubscriptionService implements OnApplicationBootstrap {
                             const BATCH_END_RETRY_AT = this.redis.pipeline();
 
                             BATCH_END_RETRY_AT.select(2);
-                            BATCH_END_RETRY_AT.hincrby(this.DB_2(queuedId, option?.pId!), "finalizeRetry", 1);
+                            BATCH_END_RETRY_AT.hincrby(this.DB_2(queuedId, option.pId), "finalizeRetry", 1);
                             BATCH_END_RETRY_AT.select(3);
-                            BATCH_END_RETRY_AT.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+                            BATCH_END_RETRY_AT.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                               label: "Retry",
                               description: "Error with status code " + statusCode,
                               createdAt: Date.now(),
@@ -792,8 +792,8 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     const BATCH_RETRY_1 = this.redis.pipeline();
 
                     BATCH_RETRY_1.select(2);
-                    BATCH_RETRY_1.hincrby(this.DB_2(queuedId, option?.pId!), "retryCount", 1);
-                    BATCH_RETRY_1.hget(this.DB_2(queuedId, option?.pId!), "retryLimit");
+                    BATCH_RETRY_1.hincrby(this.DB_2(queuedId, option.pId), "retryCount", 1);
+                    BATCH_RETRY_1.hget(this.DB_2(queuedId, option.pId), "retryLimit");
 
                     return defer(() => BATCH_RETRY_1.exec()).pipe(
                       map(v => ({
@@ -809,14 +809,14 @@ export class SubscriptionService implements OnApplicationBootstrap {
                         const BATCH_RETRY_2 = this.redis.pipeline();
 
                         BATCH_RETRY_2.select(1);
-                        BATCH_RETRY_2.hset(this.DB_1(queuedId, option?.pId!), {
+                        BATCH_RETRY_2.hset(this.DB_1(queuedId, option.pId), {
                           currentlyRepeat: false,
                           currentlyRetry: true,
                           estimateExecAt: retryAt,
                           statusCode
                         });
                         BATCH_RETRY_2.select(2);
-                        BATCH_RETRY_2.hset(this.DB_2(queuedId, option?.pId!), {
+                        BATCH_RETRY_2.hset(this.DB_2(queuedId, option.pId), {
                           estimateNextRepeatAt: 0,
                           estimateNextRetryAt: retryAt,
                           estimateExecAt: retryAt
@@ -824,7 +824,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
 
                         if (retryCount === 1) {
                           BATCH_RETRY_2.select(3);
-                          BATCH_RETRY_2.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+                          BATCH_RETRY_2.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                             label: "Error",
                             description: "Error with status code " + statusCode + ". Start retrying task execution",
                             createdAt: Date.now()
@@ -839,9 +839,9 @@ export class SubscriptionService implements OnApplicationBootstrap {
                               const BATCH_END_RETRY = this.redis.pipeline();
 
                               BATCH_END_RETRY.select(2);
-                              BATCH_END_RETRY.hincrby(this.DB_2(queuedId, option?.pId!), "finalizeRetry", 1);
+                              BATCH_END_RETRY.hincrby(this.DB_2(queuedId, option.pId), "finalizeRetry", 1);
                               BATCH_END_RETRY.select(3);
-                              BATCH_END_RETRY.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+                              BATCH_END_RETRY.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                                 label: "Retry",
                                 description: "Error with status code " + statusCode,
                                 createdAt: Date.now(),
@@ -898,20 +898,20 @@ export class SubscriptionService implements OnApplicationBootstrap {
                       const BATCH_REPEAT_AT = this.redis.pipeline();
 
                       BATCH_REPEAT_AT.select(1);
-                      BATCH_REPEAT_AT.hset(this.DB_1(queuedId, option?.pId!), {
+                      BATCH_REPEAT_AT.hset(this.DB_1(queuedId, option.pId), {
                         currentlyRepeat: true,
                         currentlyRetry: false,
                         estimateExecAt: data.config.repeatAt,
                         statusCode
                       });
                       BATCH_REPEAT_AT.select(2);
-                      BATCH_REPEAT_AT.hset(this.DB_2(queuedId, option?.pId!), {
+                      BATCH_REPEAT_AT.hset(this.DB_2(queuedId, option.pId), {
                         estimateNextRepeatAt: data.config.repeatAt,
                         estimateNextRetryAt: 0,
                         estimateExecAt: data.config.repeatAt
                       });
                       BATCH_REPEAT_AT.select(3);
-                      BATCH_REPEAT_AT.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+                      BATCH_REPEAT_AT.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                         label: "Complete",
                         description: "Success with status code " + statusCode + ". Start repeating task execution",
                         createdAt: Date.now()
@@ -925,9 +925,9 @@ export class SubscriptionService implements OnApplicationBootstrap {
                             const BATCH_END_REPEAT_AT = this.redis.pipeline();
 
                             BATCH_END_REPEAT_AT.select(2);
-                            BATCH_END_REPEAT_AT.hincrby(this.DB_2(queuedId, option?.pId!), "finalizeRepeat", 1);
+                            BATCH_END_REPEAT_AT.hincrby(this.DB_2(queuedId, option.pId), "finalizeRepeat", 1);
                             BATCH_END_REPEAT_AT.select(3);
-                            BATCH_END_REPEAT_AT.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+                            BATCH_END_REPEAT_AT.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                               label: "Repeat",
                               description: "Success with status code " + statusCode,
                               createdAt: Date.now(),
@@ -960,8 +960,8 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     const BATCH_REPEAT_1 = this.redis.pipeline();
 
                     BATCH_REPEAT_1.select(2);
-                    BATCH_REPEAT_1.hincrby(this.DB_2(queuedId, option?.pId!), "repeatCount", 1);
-                    BATCH_REPEAT_1.hget(this.DB_2(queuedId, option?.pId!), "repeatLimit");
+                    BATCH_REPEAT_1.hincrby(this.DB_2(queuedId, option.pId), "repeatCount", 1);
+                    BATCH_REPEAT_1.hget(this.DB_2(queuedId, option.pId), "repeatLimit");
 
                     return defer(() => BATCH_REPEAT_1.exec()).pipe(
                       map(v => ({
@@ -977,14 +977,14 @@ export class SubscriptionService implements OnApplicationBootstrap {
                         const BATCH_REPEAT_2 = this.redis.pipeline();
 
                         BATCH_REPEAT_2.select(1);
-                        BATCH_REPEAT_2.hset(this.DB_1(queuedId, option?.pId!), {
+                        BATCH_REPEAT_2.hset(this.DB_1(queuedId, option.pId), {
                           currentlyRepeat: true,
                           currentlyRetry: false,
                           estimateExecAt: repeatAt,
                           statusCode: statusCode
                         });
                         BATCH_REPEAT_2.select(2);
-                        BATCH_REPEAT_2.hset(this.DB_2(queuedId, option?.pId!), {
+                        BATCH_REPEAT_2.hset(this.DB_2(queuedId, option.pId), {
                           estimateNextRepeatAt: repeatAt,
                           estimateNextRetryAt: 0,
                           estimateExecAt: repeatAt
@@ -992,7 +992,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
 
                         if (repeatCount === 1) {
                           BATCH_REPEAT_2.select(3);
-                          BATCH_REPEAT_2.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+                          BATCH_REPEAT_2.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                             label: "Complete",
                             description: "Success with status code " + statusCode + ". Start repeating task execution",
                             createdAt: Date.now()
@@ -1007,9 +1007,9 @@ export class SubscriptionService implements OnApplicationBootstrap {
                               const BATCH_END_REPEAT = this.redis.pipeline();
 
                               BATCH_END_REPEAT.select(2);
-                              BATCH_END_REPEAT.hincrby(this.DB_2(queuedId, option?.pId!), "finalizeRepeat", 1);
+                              BATCH_END_REPEAT.hincrby(this.DB_2(queuedId, option.pId), "finalizeRepeat", 1);
                               BATCH_END_REPEAT.select(3);
-                              BATCH_END_REPEAT.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+                              BATCH_END_REPEAT.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                                 label: "Repeat",
                                 description: "Success with status code " + statusCode,
                                 createdAt: Date.now(),
@@ -1075,26 +1075,26 @@ export class SubscriptionService implements OnApplicationBootstrap {
             const BATCH_ERROR = this.redis.pipeline();
 
             BATCH_ERROR.select(0);
-            BATCH_ERROR.hincrby(option?.pId!, "taskInQueue", -1);
+            BATCH_ERROR.hincrby(option.pId, "taskInQueue", -1);
 
             BATCH_ERROR.select(1);
-            BATCH_ERROR.hset(this.DB_1(queuedId, option?.pId!), queuedEX);
-            BATCH_ERROR.expire(this.DB_1(queuedId, option?.pId!), this.DEFAULT_EXPIRATION);
+            BATCH_ERROR.hset(this.DB_1(queuedId, option.pId), queuedEX);
+            BATCH_ERROR.expire(this.DB_1(queuedId, option.pId), this.DEFAULT_EXPIRATION);
             BATCH_ERROR.select(2);
-            BATCH_ERROR.hset(this.DB_2(queuedId, option?.pId!), {
+            BATCH_ERROR.hset(this.DB_2(queuedId, option.pId), {
               estimateNextRepeatAt: 0,
               estimateNextRetryAt: 0,
               estimateExecAt: 0,
               estimateEndAt: today
             });
-            BATCH_ERROR.expire(this.DB_2(queuedId, option?.pId!), this.DEFAULT_EXPIRATION);
+            BATCH_ERROR.expire(this.DB_2(queuedId, option.pId), this.DEFAULT_EXPIRATION);
             BATCH_ERROR.select(3);
-            BATCH_ERROR.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+            BATCH_ERROR.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
               label: "Error",
               description: "Error with status code " + this.stackQueued[i - 1].statusCode,
               createdAt: Date.now()
             }));
-            BATCH_ERROR.expire(this.DB_3(queuedId, option?.pId!), this.DEFAULT_EXPIRATION);
+            BATCH_ERROR.expire(this.DB_3(queuedId, option.pId), this.DEFAULT_EXPIRATION);
 
             BATCH_ERROR.exec();
 
@@ -1126,26 +1126,26 @@ export class SubscriptionService implements OnApplicationBootstrap {
             const BATCH_COMPLETE = this.redis.pipeline();
 
             BATCH_COMPLETE.select(0);
-            BATCH_COMPLETE.hincrby(option?.pId!, "taskInQueue", -1);
+            BATCH_COMPLETE.hincrby(option.pId, "taskInQueue", -1);
 
             BATCH_COMPLETE.select(1);
-            BATCH_COMPLETE.hset(this.DB_1(queuedId, option?.pId!), queuedEX);
-            BATCH_COMPLETE.expire(this.DB_1(queuedId, option?.pId!), this.DEFAULT_EXPIRATION);
+            BATCH_COMPLETE.hset(this.DB_1(queuedId, option.pId), queuedEX);
+            BATCH_COMPLETE.expire(this.DB_1(queuedId, option.pId), this.DEFAULT_EXPIRATION);
             BATCH_COMPLETE.select(2);
-            BATCH_COMPLETE.hset(this.DB_2(queuedId, option?.pId!), {
+            BATCH_COMPLETE.hset(this.DB_2(queuedId, option.pId), {
               estimateNextRepeatAt: 0,
               estimateNextRetryAt: 0,
               estimateExecAt: 0,
               estimateEndAt: today
             });
-            BATCH_COMPLETE.expire(this.DB_2(queuedId, option?.pId!), this.DEFAULT_EXPIRATION);
+            BATCH_COMPLETE.expire(this.DB_2(queuedId, option.pId), this.DEFAULT_EXPIRATION);
             BATCH_COMPLETE.select(3);
-            BATCH_COMPLETE.rpush(this.DB_3(queuedId, option?.pId!), JSON.stringify({
+            BATCH_COMPLETE.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
               label: "Complete",
               description: "Success with status code " + this.stackQueued[i - 1].statusCode,
               createdAt: Date.now()
             }));
-            BATCH_COMPLETE.expire(this.DB_3(queuedId, option?.pId!), this.DEFAULT_EXPIRATION);
+            BATCH_COMPLETE.expire(this.DB_3(queuedId, option.pId), this.DEFAULT_EXPIRATION);
 
             BATCH_COMPLETE.exec();
 
@@ -1160,16 +1160,16 @@ export class SubscriptionService implements OnApplicationBootstrap {
     return queued;
   }
 
-  private DB_1(id: string, pId: string): string {
-    return "RC:QU:" + id + ":" + pId;
+  private DB_1(id: string, projectId: string): string {
+    return "RC:QU:" + id + ":" + projectId;
   }
 
-  private DB_2(id: string, pId: string): string {
-    return "RC:CF:" + id + ":" + pId;
+  private DB_2(id: string, projectId: string): string {
+    return "RC:CF:" + id + ":" + projectId;
   }
 
-  private DB_3(id: string, pId: string): string {
-    return "RC:TL:" + id + ":" + pId;
+  private DB_3(id: string, projectId: string): string {
+    return "RC:TL:" + id + ":" + projectId;
   }
 
   private logTimes(tasks: TasksReq, queued: Queued): void {
