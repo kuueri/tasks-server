@@ -13,19 +13,19 @@ Your app                        Tasks server                Target server
                                 [QUEUE] <------------------ [SERVER]
 ```
 
-Perlu diperhatikan bahwa, **Kuueri Tasks** menggunakan **Redis** sebagai database untuk menyimpan riwayat data eksekusi. Secara default, riwayat data eksekusi disimpan secara sementara selama 3 hari. Gunakan layanan kamu sendiri untuk menyimpan riwayat data eksekusi tersebut secara permanen.
+Perlu diperhatikan bahwa, **Kuueri Tasks** menggunakan **Redis** sebagai database untuk menyimpan riwayat data eksekusi. Secara default, riwayat data eksekusi disimpan sementara selama 3 hari. Gunakan layanan kamu sendiri untuk menyimpan riwayat data eksekusi tersebut secara permanen.
 
 
 ### Struktur dan Tipe Data
 Berikut adalah struktur dan tipe data yang digunakan **Kuueri Tasks**:
 1. **Kuueri Tasks** menggunakan tipe data [List](https://redis.io/docs/manual/data-types/#lists), [Sets](https://redis.io/docs/manual/data-types/#sets), dan [Hashes](https://redis.io/docs/manual/data-types/#hashes)
-2. **Kuueri Tasks** menggunakan `0~3` index database
+2. **Kuueri Tasks** menggunakan `0~3` *index* database
     - *index* `0` menyimpan data terkait *authorization*
     - *index* `1` menyimpan data terkait eksekusi
     - *index* `2` menyimpan data terkait konfigurasi eksekusi
     - *index* `3` menyimpan data terkait *timeline* eksekusi
 3. **Kuueri Tasks** mengoptimalkan proses CRUD dengan menggunakan [Redis Pipelining](https://redis.io/docs/manual/pipelining/)
-4. Gunakan fitur [Snapshotting](https://github.com/redis/redis/blob/6.2.7/redis.conf#L362) pada Redis sebagai backup
+4. **Kuueri Tasks** mengaktifkan fitur [Snapshotting](https://github.com/redis/redis/blob/6.2.7/redis.conf#L362) pada **Redis** sebagai backup
 ```
 save 3600 1
 save 300 100
@@ -57,7 +57,7 @@ save 60 10000
 3. Install **Redis** `docker-compose -f ./docker-compose.yml up -d`. Gunakan `/bin/sh` untuk masuk ke OS
 4. Proses *development* `npm run dev`. Untuk proses *build* `npm run build`
 5. Proses registrasi ke `/v1beta/register` dengan method `POST` dan masukkan body `{ email: [YOUR EMAIL] }`
-6. Proses *authorization*
+6. Atur *request headers* *authorization*
     - buat header `authorization: Bearer [TOKEN]`
     - buat header `x-kuueri-tasks-project: [PROJECT ID]`
 
@@ -65,11 +65,11 @@ save 60 10000
 ### Langkah Lanjutan
 Terdapat dependensi tambahan `@google-cloud/secret-manager` pada **Kuueri Tasks Server** dengan tujuan ketika masuk ke level *production*, file `config.json` akan disimpan ke dalam [Cloud Secret Manager](https://cloud.google.com/secret-manager). Cara ini akan jauh lebih aman karena file `config.json` tidak berada disisi server. Untuk memulai menggunakan layanan **Cloud Secret Manager**, pastikan kamu sudah menambahkan *principal* pada nama *Secret* dengan *Service Account* yang terhubung *role* sebagai *Secret Manager Secret Accessor*. Simpan file `service-account.json` dimanapun dan buat file `.docker.env`.
 
-***Jika **Kuueri Tasks Server** di deploy ke VM, abaikan `.docker.env` masukkan `TASKS_KEY_FILENAME` dan `TASKS_VERSION` ke dalam `.bashrc`
+***Jika **Kuueri Tasks Server** di deploy ke VM, abaikan `.docker.env` masukkan `TASKS_KEY_FILENAME` dan `TASKS_VERSION` ke dalam `~/.bashrc`
 
 
 ### Dokumentasi dan *API Reference*
-Versi saat ini `/v1beta`
+*Path version* saat ini `/v1beta`
 
 *Project module*:
 - `/:version/info` **`GET`** - Mendapatkan info projek
@@ -89,7 +89,13 @@ Versi saat ini `/v1beta`
 
 ### Ekosistem
 1. Kuueri Tasks Server
-2. Kuueri Tasks Client-Testing (*soon*)
+2. Kuueri Tasks Client-Testing - *soon*
+
+
+### Catatan Penting
+1. Jangan lakukan permintaan ke **Kuueri Tasks** dari sisi *client*. Lakukan permintaan disisi server/backend
+2. Secara default, terdapat limitasi panjang antrian *(task in queue)* sebanyak `1000`. Atur sesuai kebutuhan dan spesifikasi server kamu agar tidak terjadi *memory leak*
+3. Ketika masuk ke **Redis** database, hindari permintaan seperti: `FLUSHALL` `FLUSHDB` `SHUTDOWN` `CONFIG` `BGREWRITEAOF` `BGSAVE` `RENAME` `DEBUG`. Gunakan [Redis ACL](https://redis.io/docs/manual/security/acl/) untuk mengatur *role user*
 
 
 ### Lisensi
