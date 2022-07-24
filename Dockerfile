@@ -1,7 +1,5 @@
 FROM node:16-alpine
 
-RUN apk update && apk upgrade
-
 WORKDIR /usr/app/tasks
 
 COPY package*.json .

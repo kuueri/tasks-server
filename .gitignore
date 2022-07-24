@@ -46,4 +46,5 @@ note.*.txt
 resource/config/*.conf
 resource/config/*.json
 resource/credential/*.json
+!resource/config/redis.example.conf
 !resource/config/config.example.json

@@ -21,10 +21,10 @@
   },
   "DATABASE": {
     "REDIS": {
-      "HOST": "",
+      "HOST": "redis-server",
       "PORT": 6379,
-      "USERNAME": "",
-      "PASSWORD": "",
+      "USERNAME": "dev",
+      "PASSWORD": "devpassword",
       "EXPIRATION_KEY": 259200
     }
   }
