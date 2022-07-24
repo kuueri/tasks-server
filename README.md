@@ -1,8 +1,9 @@
-<div align="center">
-  <h1>Kuueri Tasks Server</h1>
-  <i>Path version /v1beta</i>
+<div style="text-align: center;">
+  <h1 style="border: 0;">Kuueri Tasks Server</h1>
+  <span>Path version /v1beta</span>
 </div>
 
+<hr>
 
 ### Definisi
 **Kuueri Tasks** adalah layanan eksekusi terkelola untuk kebutuhan pengiriman atau distribusi tugas. Secara teknis, *Task* merupakan sebuah objek yang merepresentasikan sebuah sumber eksekusi sekali pakai. Kamu dapat melakukan permintaan tugas ke **Kuueri Tasks** yang kemudian akan dieksekusi diwaktu kedepan. Selama kamu mempunyai layanan API, **Kuueri Tasks** akan mengeksekusi dan mengirimkan tugasnya ke URL target yang sudah ditentukan.
@@ -54,14 +55,15 @@ save 60 10000
 1. `npm install`
 2. Atur konfigurasi
     - buat file `config.json` di `./resource/config/` - *required*
-    - buat file `redis.conf` di `./resource/config/` - *optional*
-3. Install **Redis** `docker-compose -f ./docker-compose.yml up -d`. Gunakan `/bin/sh` untuk masuk ke OS
-4. Proses *development* `npm run dev`. Untuk proses *build* `npm run build`
+    - buat file `redis.conf` di `./resource/config/` - *required*
+3. `npm run build`
+4. Install **Kuueri Tasks** dan **Redis** `docker-compose -f ./docker-compose.yml up -d`. Gunakan `/bin/sh` untuk masuk ke OS
 5. Proses registrasi ke `/[VERSION]/register` `POST` masukkan body `{ email: [YOUR EMAIL] }`
 6. Atur permintaan *headers*
     - buat *headers* `authorization: Bearer [TOKEN]`
     - buat *headers* `x-kuueri-tasks-project: [PROJECT ID]`
 
+INFO: `npm run dev` untuk proses *development*
 
 ### Langkah Lanjutan
 Terdapat dependensi tambahan `@google-cloud/secret-manager` pada **Kuueri Tasks Server** dengan tujuan ketika masuk ke level *production*, file `config.json` akan disimpan ke dalam [Cloud Secret Manager](https://cloud.google.com/secret-manager). Cara ini akan jauh lebih aman karena file `config.json` tidak berada disisi server. Untuk memulai menggunakan layanan **Cloud Secret Manager**, pastikan kamu sudah menambahkan *principal* pada nama *Secret* dengan *Service Account* yang terhubung *role* sebagai *Secret Manager Secret Accessor*. Simpan file `service-account.json` dimanapun dan buat file `.docker.env`.
