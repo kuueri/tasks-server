@@ -1,9 +1,6 @@
-<div style="text-align: center;">
-  <h1 style="border: 0;">Kuueri Tasks Server</h1>
-  <span>Path version /v1beta</span>
-</div>
+## Kuueri Tasks Server
+*Path version* `/v1beta/**`
 
-<hr>
 
 ### Definisi
 **Kuueri Tasks** adalah layanan eksekusi terkelola untuk kebutuhan pengiriman atau distribusi tugas. Secara teknis, *Task* merupakan sebuah objek yang merepresentasikan sebuah sumber eksekusi sekali pakai. Kamu dapat melakukan permintaan tugas ke **Kuueri Tasks** yang kemudian akan dieksekusi diwaktu kedepan. Selama kamu mempunyai layanan API, **Kuueri Tasks** akan mengeksekusi dan mengirimkan tugasnya ke URL target yang sudah ditentukan.
