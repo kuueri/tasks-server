@@ -30,7 +30,6 @@ save 3600 1
 save 300 100
 save 60 10000
 ```
-5. **Kuueri Tasks** belum mendukung *multiple instance*, hanya menggunakan 1 core CPU ketika di deploy
 
 
 ### Fitur
