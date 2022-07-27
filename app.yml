@@ -1,0 +1,10 @@
+apps:
+  - script: "dist/main.js"
+    name: "tasks-server"
+    # Log file
+    error_file: "tmp/log/error.log"
+    out_file: "tmp/log/out.log"
+    # Cluster mode
+    instance_var: "INSTANCE_ID"
+    exec_mode: "cluster"
+    instances: "max"

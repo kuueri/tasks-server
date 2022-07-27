@@ -2,8 +2,8 @@ import { BadRequestException, Injectable, Logger, NotFoundException, OnApplicati
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 
-import { defer, exhaustMap, finalize, identity, map, Observable, repeat, retry, switchMap, tap, timer } from "rxjs";
-import { defaults, defer as deferAsLodash, inRange, isEmpty, toSafeInteger, toString } from "lodash";
+import { defer, exhaustMap, identity, map, Observable, repeat, retry, switchMap, tap, timer } from "rxjs";
+import { defaults, defer as deferAsLodash, isEmpty, toSafeInteger, toString, zipObject } from "lodash";
 import { addMilliseconds, differenceInMilliseconds, isFuture } from "date-fns";
 import { createWriteStream } from "fs";
 import { randomBytes } from "crypto";
@@ -22,9 +22,8 @@ import Redis from "ioredis";
 @Injectable()
 export class SubscriptionService implements OnApplicationBootstrap {
 
+  private stackQueued: Array<StackQueued> = [];
   private isInitialize = false;
-
-  private readonly stackQueued: Array<StackQueued> = [];
 
   private readonly logger = new Logger();
   private readonly level = this.config.get("LEVEL") as Level;
@@ -63,10 +62,12 @@ export class SubscriptionService implements OnApplicationBootstrap {
   */
   public async onApplicationBootstrap(): Promise<void> {
     try {
+      await this.trackChanges();
       await this.resubscribe();
       this.isInitialize = true;
     } catch (e) {
       this.logger.error(e);
+      this.isInitialize = true;
     }
   }
 
@@ -136,82 +137,60 @@ export class SubscriptionService implements OnApplicationBootstrap {
     );
   }
 
-  public unsubscribe(queuedId: string, projectId: string, args?: string): Observable<Dequeue> {
-    const i = this.stackQueued.findIndex(v => v?.id === queuedId);
-    if (i !== -1 && this.stackQueued[i].state === "RUNNING") {
-      const queued = this.stackQueued[i];
-      // Disposes the resources held by the subscription
-      queued.subscription?.unsubscribe();
-      // Assign new value
-      const today = Date.now();
-      queued.estimateExecAt = 0;
-      queued.estimateEndAt = today;
+  public unsubscribe(queuedId: string, projectId: string): Observable<Dequeue> {
+    const today = Date.now();
+    const BATCH_1 = this.redis.pipeline();
 
-      if (inRange(queued.statusCode, 200, 300)) {
-        queued.state = "COMPLETED";
-      }
-      if (inRange(queued.statusCode, 400, 600)) {
-        queued.state = "ERROR";
-      }
+    BATCH_1.select(1);
+    BATCH_1.hget(this.DB_1(queuedId, projectId), "state");
 
-      if (!queued.currentlyRepeat && !queued.currentlyRetry) {
-        queued.statusCode = 0;
-        queued.state = "CANCELED";
-      }
+    return defer(() => BATCH_1.exec()).pipe(
+      map(v => {
+        if (v) {
+          const state = v[1][1] as StateQueueName;
+          if (state === "RUNNING") {
+            return state;
+          }
+          throw new BadRequestException();
+        }
+        throw new BadRequestException();
+      }),
+      exhaustMap(() => {
+        const BATCH_2 = this.redis.pipeline();
 
-      queued.currentlyRepeat = false;
-      queued.currentlyRetry = false;
+        BATCH_2.select(0);
+        BATCH_2.hincrby(projectId, "taskInQueue", -1);
 
-      const BATCH = this.redis.pipeline();
+        BATCH_2.select(1);
+        BATCH_2.hset(this.DB_1(queuedId, projectId), {
+          estimateExecAt: 0,
+          estimateEndAt: today,
+          currentlyRepeat: false,
+          currentlyRetry: false,
+          state: "CANCELED"
+        });
+        BATCH_2.expire(this.DB_1(queuedId, projectId), this.DEFAULT_EXPIRATION);
+        BATCH_2.select(2);
+        BATCH_2.hset(this.DB_2(queuedId, projectId), {
+          estimateNextRepeatAt: 0,
+          estimateNextRetryAt: 0,
+          estimateExecAt: 0,
+          estimateEndAt: today
+        });
+        BATCH_2.expire(this.DB_2(queuedId, projectId), this.DEFAULT_EXPIRATION);
+        BATCH_2.select(3);
+        BATCH_2.rpush(this.DB_3(queuedId, projectId), JSON.stringify({
+          label: "Unsubscribe",
+          description: "Task resource disposed",
+          createdAt: today
+        }));
+        BATCH_2.expire(this.DB_3(queuedId, projectId), this.DEFAULT_EXPIRATION);
 
-      BATCH.select(0);
-      BATCH.hincrby(projectId, "taskInQueue", -1);
-
-      // Cleanup metadata and drop the key
-      if (args === "-D") {
-        BATCH.select(1);
-        BATCH.del(this.DB_1(queuedId, projectId));
-        BATCH.select(2);
-        BATCH.del(this.DB_2(queuedId, projectId));
-        BATCH.select(3);
-        BATCH.del(this.DB_3(queuedId, projectId));
-
-        return defer(() => BATCH.exec()).pipe(
-          map(() => ({ response: "UNSUBSCRIBED & EMPTY" } as Dequeue)),
-          finalize(() => delete this.stackQueued[i])
+        return defer(() => BATCH_2.exec()).pipe(
+          map(() => ({ response: "UNSUBSCRIBED" } as Dequeue))
         );
-      }
-      const queuedEX = { ...this.stackQueued[i] };
-      // @ts-ignore
-      delete queuedEX.subscription;
-      // @ts-ignore
-      delete queuedEX.config;
-
-      BATCH.select(1);
-      BATCH.hset(this.DB_1(queuedId, projectId), queuedEX);
-      BATCH.expire(this.DB_1(queuedId, projectId), this.DEFAULT_EXPIRATION);
-      BATCH.select(2);
-      BATCH.hset(this.DB_2(queuedId, projectId), {
-        estimateNextRepeatAt: 0,
-        estimateNextRetryAt: 0,
-        estimateExecAt: 0,
-        estimateEndAt: today
-      });
-      BATCH.expire(this.DB_2(queuedId, projectId), this.DEFAULT_EXPIRATION);
-      BATCH.select(3);
-      BATCH.rpush(this.DB_3(queuedId, projectId), JSON.stringify({
-        label: "Unsubscribe",
-        description: "Task resource disposed",
-        createdAt: Date.now()
-      }));
-      BATCH.expire(this.DB_3(queuedId, projectId), this.DEFAULT_EXPIRATION);
-
-      return defer(() => BATCH.exec()).pipe(
-        map(() => ({ response: "UNSUBSCRIBED" } as Dequeue)),
-        finalize(() => delete this.stackQueued[i])
-      );
-    }
-    throw new BadRequestException();
+      })
+    );
   }
 
   public purge(queuedId: string, projectId: string): Observable<{ [f: string]: string }> {
@@ -272,43 +251,49 @@ export class SubscriptionService implements OnApplicationBootstrap {
   }
 
   public pause(queuedId: string, projectId: string): Observable<{ [f: string]: string }> {
-    const i = this.stackQueued.findIndex(v => v?.id === queuedId);
-    if (i !== -1 && this.stackQueued[i].state === "RUNNING") {
-      const queued = this.stackQueued[i];
-      // Disposes the resources held by the subscription
-      queued.subscription?.unsubscribe();
-      // Assign new value
-      queued.estimateExecAt = 0;
-      queued.state = "PAUSED";
-      const queuedEX = { ...queued };
-      // @ts-ignore
-      delete queuedEX.subscription;
-      // @ts-ignore
-      delete queuedEX.config;
+    const today = Date.now();
+    const BATCH_1 = this.redis.pipeline();
 
-      const BATCH = this.redis.pipeline();
+    BATCH_1.select(1);
+    BATCH_1.hget(this.DB_1(queuedId, projectId), "state");
 
-      BATCH.select(1);
-      BATCH.hset(this.DB_1(queuedId, projectId), queuedEX);
-      BATCH.select(2);
-      BATCH.hset(this.DB_2(queuedId, projectId), {
-        estimateNextRepeatAt: 0,
-        estimateNextRetryAt: 0,
-        estimateEndAt: Date.now()
-      });
-      BATCH.select(3);
-      BATCH.rpush(this.DB_3(queuedId, projectId), JSON.stringify({
-        label: "Pause",
-        description: "Stop dispatch task resource",
-        createdAt: Date.now()
-      }));
+    return defer(() => BATCH_1.exec()).pipe(
+      map(v => {
+        if (v) {
+          const state = v[1][1] as StateQueueName;
+          if (state === "RUNNING") {
+            return state;
+          }
+          throw new BadRequestException();
+        }
+        throw new BadRequestException();
+      }),
+      exhaustMap(() => {
+        const BATCH_2 = this.redis.pipeline();
 
-      return defer(() => BATCH.exec()).pipe(
-        map(() => ({ response: "PAUSED" })),
-        finalize(() => delete this.stackQueued[i])
-      );
-    }
-    throw new BadRequestException();
+        BATCH_2.select(1);
+        BATCH_2.hset(this.DB_1(queuedId, projectId), {
+          estimateExecAt: 0,
+          state: "PAUSED"
+        });
+        BATCH_2.select(2);
+        BATCH_2.hset(this.DB_2(queuedId, projectId), {
+          estimateNextRepeatAt: 0,
+          estimateNextRetryAt: 0,
+          estimateEndAt: today
+        });
+        BATCH_2.select(3);
+        BATCH_2.rpush(this.DB_3(queuedId, projectId), JSON.stringify({
+          label: "Pause",
+          description: "Stop dispatch task resource",
+          createdAt: today
+        }));
+
+        return defer(() => BATCH_2.exec()).pipe(
+          map(() => ({ response: "PAUSED" }))
+        );
+      })
+    );
   }
 
   public resume(queuedId: string, projectId: string): Observable<Queued> {
@@ -555,9 +540,8 @@ export class SubscriptionService implements OnApplicationBootstrap {
     const dueDateTimer = !!data.config.executionAt
       ? new Date(data.config.executionAt)
       : data.config.executionDelay;
-    // Appends new elements to the end of an array
-    // Returns the new length of the array
-    const i = this.stackQueued.push({
+
+    this.stackQueued.push({
       id: queuedId,
       pId: option.pId,
       state: "RUNNING",
@@ -582,6 +566,8 @@ export class SubscriptionService implements OnApplicationBootstrap {
             timeout: data.config.timeout
           };
 
+          let statusCode = 0;
+
           let isFirstNext = true;
           let isFirstError = true;
 
@@ -593,11 +579,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
               // A next handler or partial observer
               // On first complete
               next: async response => {
-                if (isFirstNext) {
-                  this.stackQueued[i - 1].currentlyRepeat = true;
-                  this.stackQueued[i - 1].currentlyRetry = false;
-                  this.stackQueued[i - 1].statusCode = response.status;
+                statusCode = response.status;
+                const BATCH_NEXT = this.redis.pipeline();
 
+                BATCH_NEXT.select(1);
+                BATCH_NEXT.hset(this.DB_1(queuedId, option.pId), { statusCode });
+
+                BATCH_NEXT.exec();
+
+                if (isFirstNext) {
                   if (option?.isRepeatTerminated || (option?.isPaused && option.currentlyRepeat)) {
                     const BATCH_NEXT_REPEAT = this.redis.pipeline();
 
@@ -625,13 +615,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     }
 
                     if (data.config.repeatAt) {
+                      const queued = this.stackQueued.find(q => q.id === queuedId);
+
                       BATCH_NEXT_REPEAT.select(3);
                       BATCH_NEXT_REPEAT.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                         label: "Repeat",
-                        description: "Success with status code " + this.stackQueued[i - 1].statusCode,
+                        description: "Success with status code " + statusCode,
                         createdAt: Date.now(),
                         metadata: {
-                          repeatAt: this.stackQueued[i - 1].estimateExecAt
+                          repeatAt: queued?.estimateExecAt
                         }
                       }));
                     }
@@ -648,12 +640,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
               },
               // On first error
               error: async e => {
-                if (isFirstError) {
-                  const statusCode = this.util.toStatusCode(e);
+                const BATCH_ERROR = this.redis.pipeline();
 
-                  this.stackQueued[i - 1].currentlyRepeat = false;
-                  this.stackQueued[i - 1].currentlyRetry = true;
-                  this.stackQueued[i - 1].statusCode = statusCode;
+                BATCH_ERROR.select(1);
+                BATCH_ERROR.hset(this.DB_1(queuedId, option.pId), { statusCode });
+
+                BATCH_ERROR.exec();
+
+                if (isFirstError) {
+                  statusCode = this.util.toStatusCode(e);
 
                   if (option?.isRetryTerminated || (option?.isPaused && option.currentlyRetry)) {
                     const BATCH_ERROR_RETRY = this.redis.pipeline();
@@ -682,13 +677,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     }
 
                     if (data.config.retryAt) {
+                      const queued = this.stackQueued.find(q => q.id === queuedId);
+
                       BATCH_ERROR_RETRY.select(3);
                       BATCH_ERROR_RETRY.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
                         label: "Retry",
                         description: "Error with status code " + statusCode,
                         createdAt: Date.now(),
                         metadata: {
-                          retryAt: this.stackQueued[i - 1].estimateExecAt
+                          retryAt: queued?.estimateExecAt
                         }
                       }));
                     }
@@ -717,12 +714,8 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     ? data.config.retry - 1
                     : data.config.retry,
                   delay: e => {
+                    statusCode = this.util.toStatusCode(e);
                     const today = Date.now();
-                    const statusCode = this.util.toStatusCode(e);
-
-                    this.stackQueued[i - 1].currentlyRepeat = false;
-                    this.stackQueued[i - 1].currentlyRetry = true;
-                    this.stackQueued[i - 1].statusCode = statusCode;
 
                     if (data.config.retryAt) {
                       const dueDate = new Date(data.config.retryAt);
@@ -887,10 +880,6 @@ export class SubscriptionService implements OnApplicationBootstrap {
                     : data.config.repeat + 1,
                   delay: () => {
                     const today = Date.now();
-                    const statusCode = this.stackQueued[i - 1].statusCode;
-
-                    this.stackQueued[i - 1].currentlyRepeat = true;
-                    this.stackQueued[i - 1].currentlyRetry = false;
 
                     if (data.config.repeatAt) {
                       const dueDate = new Date(data.config.repeatAt);
@@ -1053,32 +1042,24 @@ export class SubscriptionService implements OnApplicationBootstrap {
         // Observer got an error
         error: e => {
           const today = Date.now();
+          const statusCode = this.util.toStatusCode(e);
+
           deferAsLodash(() => {
             this.logger.error("Dequeue:" + queuedId + " " + toString(e));
-            // Assign new value
-            this.stackQueued[i - 1].estimateExecAt = 0;
-            this.stackQueued[i - 1].estimateEndAt = today;
-            this.stackQueued[i - 1].currentlyRepeat = false;
-            this.stackQueued[i - 1].currentlyRetry = false;
-            this.stackQueued[i - 1].state = "ERROR";
-            // @ts-ignore
-            this.stackQueued[i - 1].subscription = undefined;
-            // @ts-ignore
-            this.stackQueued[i - 1].config = undefined;
-
-            const queuedEX: Queued = { ...this.stackQueued[i - 1] };
-            // @ts-ignore
-            delete queuedEX.subscription;
-            // @ts-ignore
-            delete queuedEX.config;
-
             const BATCH_ERROR = this.redis.pipeline();
 
             BATCH_ERROR.select(0);
             BATCH_ERROR.hincrby(option.pId, "taskInQueue", -1);
 
             BATCH_ERROR.select(1);
-            BATCH_ERROR.hset(this.DB_1(queuedId, option.pId), queuedEX);
+            BATCH_ERROR.hset(this.DB_1(queuedId, option.pId), {
+              estimateExecAt: 0,
+              estimateEndAt: today,
+              currentlyRepeat: false,
+              currentlyRetry: false,
+              statusCode,
+              state: "ERROR"
+            });
             BATCH_ERROR.expire(this.DB_1(queuedId, option.pId), this.DEFAULT_EXPIRATION);
             BATCH_ERROR.select(2);
             BATCH_ERROR.hset(this.DB_2(queuedId, option.pId), {
@@ -1091,45 +1072,33 @@ export class SubscriptionService implements OnApplicationBootstrap {
             BATCH_ERROR.select(3);
             BATCH_ERROR.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
               label: "Error",
-              description: "Error with status code " + this.stackQueued[i - 1].statusCode,
+              description: toString(e),
               createdAt: Date.now()
             }));
             BATCH_ERROR.expire(this.DB_3(queuedId, option.pId), this.DEFAULT_EXPIRATION);
 
             BATCH_ERROR.exec();
-
-            delete this.stackQueued[i - 1];
           });
         },
         // Observer got a complete notification
         complete: () => {
           const today = Date.now();
+
           deferAsLodash(() => {
             this.logger.log("Dequeue:" + queuedId);
-            // Assign new value
-            this.stackQueued[i - 1].estimateExecAt = 0;
-            this.stackQueued[i - 1].estimateEndAt = today;
-            this.stackQueued[i - 1].currentlyRepeat = false;
-            this.stackQueued[i - 1].currentlyRetry = false;
-            this.stackQueued[i - 1].state = "COMPLETED";
-            // @ts-ignore
-            this.stackQueued[i - 1].subscription = undefined;
-            // @ts-ignore
-            this.stackQueued[i - 1].config = undefined;
-
-            const queuedEX: Queued = { ...this.stackQueued[i - 1] };
-            // @ts-ignore
-            delete queuedEX.subscription;
-            // @ts-ignore
-            delete queuedEX.config;
-
             const BATCH_COMPLETE = this.redis.pipeline();
 
             BATCH_COMPLETE.select(0);
             BATCH_COMPLETE.hincrby(option.pId, "taskInQueue", -1);
 
             BATCH_COMPLETE.select(1);
-            BATCH_COMPLETE.hset(this.DB_1(queuedId, option.pId), queuedEX);
+            BATCH_COMPLETE.hset(this.DB_1(queuedId, option.pId), {
+              estimateExecAt: 0,
+              estimateEndAt: today,
+              currentlyRepeat: false,
+              currentlyRetry: false,
+              state: "COMPLETED"
+            });
             BATCH_COMPLETE.expire(this.DB_1(queuedId, option.pId), this.DEFAULT_EXPIRATION);
             BATCH_COMPLETE.select(2);
             BATCH_COMPLETE.hset(this.DB_2(queuedId, option.pId), {
@@ -1142,22 +1111,22 @@ export class SubscriptionService implements OnApplicationBootstrap {
             BATCH_COMPLETE.select(3);
             BATCH_COMPLETE.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
               label: "Complete",
-              description: "Success with status code " + this.stackQueued[i - 1].statusCode,
+              description: "Task has been executed successfully",
               createdAt: Date.now()
             }));
             BATCH_COMPLETE.expire(this.DB_3(queuedId, option.pId), this.DEFAULT_EXPIRATION);
 
             BATCH_COMPLETE.exec();
-
-            delete this.stackQueued[i - 1];
           });
         }
       }),
       config: data.config
     });
+
+    const registered = this.stackQueued.find(q => q.id === queuedId)!;
     // Destructuring some field to get queued
-    const { subscription, config, ...queued } = this.stackQueued[i - 1];
-    return queued;
+    const { subscription, config, ...queued } = registered;
+    return queued as Queued;
   }
 
   private DB_1(id: string, projectId: string): string {
@@ -1258,10 +1227,48 @@ export class SubscriptionService implements OnApplicationBootstrap {
     }
   }
 
-  private async resubscribe(): Promise<void> {
+  private async trackChanges(): Promise<void> {
     if (this.isInitialize) {
       return;
     }
+
+    const MONIT = await this.redis.monitor();
+
+    MONIT.on("monitor", (_: string, args: ReadonlyArray<string>, __: string, db: string) => {
+      if (db === "1") {
+        const odd = args.filter((_, i) => i % 2 !== 0);
+        const even = args.filter((_, i) => i % 2 === 0);
+
+        if (even.includes("hset")) {
+          const response = zipObject(even, odd) as Readonly<{ [f: string]: string }>;
+
+          if ("state" in response) {
+            const key = response.hset.split(":")[2];
+            const state = response.state as StateQueueName;
+
+            if (state === "COMPLETED" || state === "ERROR") {
+              this.stackQueued = this.stackQueued.filter(q => !(q.subscription?.closed));
+            }
+
+            if (state === "CANCELED" || state === "PAUSED") {
+              const i = this.stackQueued.findIndex(q => q?.id === key);
+              if (i !== -1) {
+                // Disposes the resources held by the subscription
+                this.stackQueued[i].subscription?.unsubscribe();
+                this.stackQueued = this.stackQueued.filter(q => !(q.subscription?.closed));
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  private async resubscribe(): Promise<void> {
+    if (this.level === "PRODUCTION" && (this.isInitialize || process.env.NODE_APP_INSTANCE !== "0")) {
+      return;
+    }
+
     let keys: ReadonlyArray<string> = [];
     const BATCH_1 = this.redis.pipeline();
 

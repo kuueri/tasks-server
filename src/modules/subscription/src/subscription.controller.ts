@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Header, Headers, Param, Patch, Post, Query, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Header, Headers, Param, Patch, Post, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from "@nestjs/common";
 
 import { first, Observable } from "rxjs";
 
@@ -104,10 +104,9 @@ export class SubscriptionController {
   @UseGuards(SubscriptionGuard)
   public unsubscribe(
     @Param("id") id: string,
-    @Query("args") d: string,
     @Headers("x-kuueri-tasks-project") pId: string
   ): Observable<Dequeue> {
-    return this.subscription.unsubscribe(id, pId, d).pipe(
+    return this.subscription.unsubscribe(id, pId).pipe(
       first()
     );
   }

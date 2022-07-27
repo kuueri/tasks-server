@@ -18,7 +18,7 @@ services:
   tasks:
     build: .
     container_name: tasks-server
-    command: node dist/main.js
+    command: pm2-runtime start app.yml
     image: tasks:latest
     ports:
       - 8400:8200
