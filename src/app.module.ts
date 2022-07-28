@@ -19,27 +19,12 @@ import { AppFilter } from "./app.filter";
 
 import config from "./core/config/config";
 
-import Joi from "joi";
-
 @Module({
   providers: [
     { provide: APP_FILTER, useClass: AppFilter }
   ],
   imports: [
     ConfigModule.forRoot({
-      validationSchema: Joi.object()
-        .keys({
-          TASKS_KEY_FILENAME: Joi.string()
-            .optional(),
-          TASKS_VERSION: Joi.string()
-            .optional()
-        })
-        .optional(),
-      validationOptions: {
-        abortEarly: false,
-        dateFormat: "utc",
-        convert: false
-      },
       ignoreEnvFile: true,
       isGlobal: true,
       cache: true,
