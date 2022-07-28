@@ -39,7 +39,7 @@ export type StackQueued = {
    *
    * @see https://rxjs.dev/guide/subscription
   */
-  subscription: Subscription | null;
+  subscription: Subscription;
   config: TasksConfig;
 };
 
@@ -81,7 +81,7 @@ export type RegisterOption = {
   isRetryTerminated?: boolean;
   currentlyRepeat?: boolean;
   currentlyRetry?: boolean;
-  statusCode?: number | null;
+  statusCode?: number;
   isPaused?: boolean;
   pId: string;
   id?: string;

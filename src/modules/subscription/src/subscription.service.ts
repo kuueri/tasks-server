@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 
 import { defer, exhaustMap, identity, map, Observable, repeat, retry, switchMap, tap, timer } from "rxjs";
-import { defaults, defer as deferAsLodash, isEmpty, toSafeInteger, toString, zipObject } from "lodash";
+import { defaults, isEmpty, toSafeInteger, toString, zipObject } from "lodash";
 import { addMilliseconds, differenceInMilliseconds, isFuture } from "date-fns";
 import { createWriteStream } from "fs";
 import { randomBytes } from "crypto";
@@ -550,9 +550,9 @@ export class SubscriptionService implements OnApplicationBootstrap {
         ? new Date(data.config.executionAt).getTime()
         : todayAddMs,
       estimateStartAt: today,
-      currentlyRetry: !!option?.currentlyRetry,
-      currentlyRepeat: !!option?.currentlyRepeat,
-      statusCode: option?.statusCode || 0,
+      currentlyRetry: !!option.currentlyRetry,
+      currentlyRepeat: !!option.currentlyRepeat,
+      statusCode: option.statusCode || 0,
       // This could be any observable stream
       subscription: timer(dueDateTimer).pipe(
         // Map to inner observable, ignore other values until that observable completes
@@ -588,7 +588,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
                 BATCH_NEXT.exec();
 
                 if (isFirstNext) {
-                  if (option?.isRepeatTerminated || (option?.isPaused && option.currentlyRepeat)) {
+                  if (option.isRepeatTerminated || (option.isPaused && option.currentlyRepeat)) {
                     const BATCH_NEXT_REPEAT = this.redis.pipeline();
 
                     BATCH_NEXT_REPEAT.select(2);
@@ -650,7 +650,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
                 if (isFirstError) {
                   statusCode = this.util.toStatusCode(e);
 
-                  if (option?.isRetryTerminated || (option?.isPaused && option.currentlyRetry)) {
+                  if (option.isRetryTerminated || (option.isPaused && option.currentlyRetry)) {
                     const BATCH_ERROR_RETRY = this.redis.pipeline();
 
                     BATCH_ERROR_RETRY.select(2);
@@ -710,7 +710,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
             data.config.retry === 0 && data.config.retryAt === 0
               ? map(identity)
               : retry({
-                  count: !!option?.isRetryTerminated || (!!option?.isPaused && !!option.currentlyRetry)
+                  count: !!option.isRetryTerminated || (!!option.isPaused && !!option.currentlyRetry)
                     ? data.config.retry - 1
                     : data.config.retry,
                   delay: e => {
@@ -875,7 +875,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
             data.config.repeat === 0 && data.config.repeatAt
               ? map(identity)
               : repeat({
-                  count: !!option?.isRepeatTerminated || (!!option?.isPaused && !!option.currentlyRepeat)
+                  count: !!option.isRepeatTerminated || (!!option.isPaused && !!option.currentlyRepeat)
                     ? data.config.repeat
                     : data.config.repeat + 1,
                   delay: () => {
@@ -1041,83 +1041,79 @@ export class SubscriptionService implements OnApplicationBootstrap {
       .subscribe({
         // Observer got an error
         error: e => {
+          this.logger.error("Dequeue:" + queuedId + " " + toString(e));
+
           const today = Date.now();
           const statusCode = this.util.toStatusCode(e);
+          const BATCH_ERROR = this.redis.pipeline();
 
-          deferAsLodash(() => {
-            this.logger.error("Dequeue:" + queuedId + " " + toString(e));
-            const BATCH_ERROR = this.redis.pipeline();
+          BATCH_ERROR.select(0);
+          BATCH_ERROR.hincrby(option.pId, "taskInQueue", -1);
 
-            BATCH_ERROR.select(0);
-            BATCH_ERROR.hincrby(option.pId, "taskInQueue", -1);
-
-            BATCH_ERROR.select(1);
-            BATCH_ERROR.hset(this.DB_1(queuedId, option.pId), {
-              estimateExecAt: 0,
-              estimateEndAt: today,
-              currentlyRepeat: false,
-              currentlyRetry: false,
-              statusCode,
-              state: "ERROR"
-            });
-            BATCH_ERROR.expire(this.DB_1(queuedId, option.pId), this.DEFAULT_EXPIRATION);
-            BATCH_ERROR.select(2);
-            BATCH_ERROR.hset(this.DB_2(queuedId, option.pId), {
-              estimateNextRepeatAt: 0,
-              estimateNextRetryAt: 0,
-              estimateExecAt: 0,
-              estimateEndAt: today
-            });
-            BATCH_ERROR.expire(this.DB_2(queuedId, option.pId), this.DEFAULT_EXPIRATION);
-            BATCH_ERROR.select(3);
-            BATCH_ERROR.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
-              label: "Error",
-              description: toString(e),
-              createdAt: Date.now()
-            }));
-            BATCH_ERROR.expire(this.DB_3(queuedId, option.pId), this.DEFAULT_EXPIRATION);
-
-            BATCH_ERROR.exec();
+          BATCH_ERROR.select(1);
+          BATCH_ERROR.hset(this.DB_1(queuedId, option.pId), {
+            estimateExecAt: 0,
+            estimateEndAt: today,
+            currentlyRepeat: false,
+            currentlyRetry: false,
+            statusCode,
+            state: "ERROR"
           });
+          BATCH_ERROR.expire(this.DB_1(queuedId, option.pId), this.DEFAULT_EXPIRATION);
+          BATCH_ERROR.select(2);
+          BATCH_ERROR.hset(this.DB_2(queuedId, option.pId), {
+            estimateNextRepeatAt: 0,
+            estimateNextRetryAt: 0,
+            estimateExecAt: 0,
+            estimateEndAt: today
+          });
+          BATCH_ERROR.expire(this.DB_2(queuedId, option.pId), this.DEFAULT_EXPIRATION);
+          BATCH_ERROR.select(3);
+          BATCH_ERROR.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
+            label: "Error",
+            description: toString(e),
+            createdAt: Date.now()
+          }));
+          BATCH_ERROR.expire(this.DB_3(queuedId, option.pId), this.DEFAULT_EXPIRATION);
+
+          BATCH_ERROR.exec();
         },
         // Observer got a complete notification
         complete: () => {
+          this.logger.log("Dequeue:" + queuedId);
+
           const today = Date.now();
+          const BATCH_COMPLETE = this.redis.pipeline();
 
-          deferAsLodash(() => {
-            this.logger.log("Dequeue:" + queuedId);
-            const BATCH_COMPLETE = this.redis.pipeline();
+          BATCH_COMPLETE.select(0);
+          BATCH_COMPLETE.hincrby(option.pId, "taskInQueue", -1);
 
-            BATCH_COMPLETE.select(0);
-            BATCH_COMPLETE.hincrby(option.pId, "taskInQueue", -1);
-
-            BATCH_COMPLETE.select(1);
-            BATCH_COMPLETE.hset(this.DB_1(queuedId, option.pId), {
-              estimateExecAt: 0,
-              estimateEndAt: today,
-              currentlyRepeat: false,
-              currentlyRetry: false,
-              state: "COMPLETED"
-            });
-            BATCH_COMPLETE.expire(this.DB_1(queuedId, option.pId), this.DEFAULT_EXPIRATION);
-            BATCH_COMPLETE.select(2);
-            BATCH_COMPLETE.hset(this.DB_2(queuedId, option.pId), {
-              estimateNextRepeatAt: 0,
-              estimateNextRetryAt: 0,
-              estimateExecAt: 0,
-              estimateEndAt: today
-            });
-            BATCH_COMPLETE.expire(this.DB_2(queuedId, option.pId), this.DEFAULT_EXPIRATION);
-            BATCH_COMPLETE.select(3);
-            BATCH_COMPLETE.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
-              label: "Complete",
-              description: "Task has been executed successfully",
-              createdAt: Date.now()
-            }));
-            BATCH_COMPLETE.expire(this.DB_3(queuedId, option.pId), this.DEFAULT_EXPIRATION);
-
-            BATCH_COMPLETE.exec();
+          BATCH_COMPLETE.select(1);
+          BATCH_COMPLETE.hset(this.DB_1(queuedId, option.pId), {
+            estimateExecAt: 0,
+            estimateEndAt: today,
+            currentlyRepeat: false,
+            currentlyRetry: false,
+            state: "COMPLETED"
           });
+          BATCH_COMPLETE.expire(this.DB_1(queuedId, option.pId), this.DEFAULT_EXPIRATION);
+          BATCH_COMPLETE.select(2);
+          BATCH_COMPLETE.hset(this.DB_2(queuedId, option.pId), {
+            estimateNextRepeatAt: 0,
+            estimateNextRetryAt: 0,
+            estimateExecAt: 0,
+            estimateEndAt: today
+          });
+          BATCH_COMPLETE.expire(this.DB_2(queuedId, option.pId), this.DEFAULT_EXPIRATION);
+          BATCH_COMPLETE.select(3);
+          BATCH_COMPLETE.rpush(this.DB_3(queuedId, option.pId), JSON.stringify({
+            label: "Complete",
+            description: "Task has been executed successfully",
+            createdAt: Date.now()
+          }));
+          BATCH_COMPLETE.expire(this.DB_3(queuedId, option.pId), this.DEFAULT_EXPIRATION);
+
+          BATCH_COMPLETE.exec();
         }
       }),
       config: data.config
@@ -1247,15 +1243,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
             const state = response.state as StateQueueName;
 
             if (state === "COMPLETED" || state === "ERROR") {
-              this.stackQueued = this.stackQueued.filter(q => !(q.subscription?.closed));
+              this.stackQueued = this.stackQueued.filter(q => !(q.subscription.closed));
             }
 
             if (state === "CANCELED" || state === "PAUSED") {
               const i = this.stackQueued.findIndex(q => q?.id === key);
               if (i !== -1) {
                 // Disposes the resources held by the subscription
-                this.stackQueued[i].subscription?.unsubscribe();
-                this.stackQueued = this.stackQueued.filter(q => !(q.subscription?.closed));
+                this.stackQueued[i].subscription.unsubscribe();
+                this.stackQueued = this.stackQueued.filter(q => !(q.subscription.closed));
               }
             }
           }
