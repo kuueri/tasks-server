@@ -1239,15 +1239,15 @@ export class SubscriptionService implements OnApplicationBootstrap {
           const response = zipObject(even, odd) as Readonly<{ [f: string]: string }>;
 
           if ("state" in response) {
-            const key = response.hset.split(":")[2];
             const state = response.state as StateQueueName;
+            const queueId = response.hset.split(":")[2];
 
             if (state === "COMPLETED" || state === "ERROR") {
               this.stackQueued = this.stackQueued.filter(q => !(q.subscription.closed));
             }
 
             if (state === "CANCELED" || state === "PAUSED") {
-              const i = this.stackQueued.findIndex(q => q?.id === key);
+              const i = this.stackQueued.findIndex(q => q?.id === queueId);
               if (i !== -1) {
                 // Disposes the resources held by the subscription
                 this.stackQueued[i].subscription.unsubscribe();
