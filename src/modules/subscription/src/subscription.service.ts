@@ -12,7 +12,7 @@ import { InjectRedis } from "@liaoliaots/nestjs-redis";
 import { UtilService } from "src/core/services/util.service";
 import { AESService } from "src/core/services/aes.service";
 
-import { StackQueued, Queued, Dequeue, RecordQueue, RecordQueueConf, RegisterOption, StateQueueName } from "src/core/types/queue";
+import { StackQueued, Queued, Dequeue, RecordQueue, RecordQueueConf, RegisterOption, StateQueue } from "src/core/types/queue";
 import { TasksConfig, TasksReq, TasksTimeline } from "src/core/types/tasks";
 import { Done, SafeAny } from "src/core/types/empty";
 import { Level } from "src/core/types/level";
@@ -147,7 +147,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
     return defer(() => BATCH_1.exec()).pipe(
       map(v => {
         if (v) {
-          const state = v[1][1] as StateQueueName;
+          const state = v[1][1] as StateQueue;
           if (state === "RUNNING") {
             return state;
           }
@@ -202,7 +202,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
     return defer(() => BATCH_1.exec()).pipe(
       map(v => {
         if (v) {
-          const r = v[1][1] as StateQueueName;
+          const r = v[1][1] as StateQueue;
           if (r !== "RUNNING") {
             return r;
           }
@@ -260,7 +260,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
     return defer(() => BATCH_1.exec()).pipe(
       map(v => {
         if (v) {
-          const state = v[1][1] as StateQueueName;
+          const state = v[1][1] as StateQueue;
           if (state === "RUNNING") {
             return state;
           }
@@ -1239,7 +1239,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
           const response = zipObject(even, odd) as Readonly<{ [f: string]: string }>;
 
           if ("state" in response) {
-            const state = response.state as StateQueueName;
+            const state = response.state as StateQueue;
             const queueId = response.hset.split(":")[2];
 
             if (state === "COMPLETED" || state === "ERROR") {

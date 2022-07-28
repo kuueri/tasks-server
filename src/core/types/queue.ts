@@ -2,14 +2,13 @@ import { Subscription } from "rxjs";
 
 import { TasksConfig } from "./tasks";
 
-export type Order = "ASC" | "DESC";
-export type StateQueueName = "RUNNING" | "CANCELED" | "COMPLETED" | "EXCEEDED" | "PAUSED" | "ERROR";
-export type StateDequeueName = "UNSUBSCRIBED" | "UNSUBSCRIBED & EMPTY";
+export type StateEnd = "UNSUBSCRIBED" | "UNSUBSCRIBED & EMPTY";
+export type StateQueue = "RUNNING" | "CANCELED" | "COMPLETED" | "EXCEEDED" | "PAUSED" | "ERROR";
 
 export type StackQueued = {
   id: string;
   pId: string;
-  state: StateQueueName;
+  state: StateQueue;
   statusCode: number;
   /**
    * endAt
@@ -47,7 +46,7 @@ export type Queued = {
   // Metadata
   id: string;
   pId: string;
-  state: StateQueueName;
+  state: StateQueue;
   statusCode: number;
   /**
    * endAt
@@ -73,7 +72,7 @@ export type Queued = {
 }
 
 export type Dequeue = {
-  [f: string]: StateDequeueName;
+  [f: string]: StateEnd;
 };
 
 export type RegisterOption = {
