@@ -28,7 +28,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
   private readonly logger = new Logger();
   private readonly level = this.config.get("LEVEL") as Level;
 
-  private readonly DEFAULT_TASKS_CONFIG: TasksConfig = {
+  private readonly DEFAULT_TASKS_CONFIG: Readonly<TasksConfig> = {
     executionAt: 0,
     executionDelay: 1,
     retry: 0,
@@ -40,7 +40,7 @@ export class SubscriptionService implements OnApplicationBootstrap {
     repeatInterval: 1000,
     repeatExponential: true,
     timeout: 300000
-  } as const;
+  };
   /**
    * Set a timeout in seconds on key
    * After the timeout has expired, the key will automatically be deleted
