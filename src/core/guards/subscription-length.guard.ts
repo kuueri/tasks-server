@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, PayloadTooLargeException, UnauthorizedException } from "@nestjs/common";
 
-import { defer, first, map, Observable } from "rxjs";
+import { defer, map, Observable, take } from "rxjs";
 import { toSafeInteger, toString } from "lodash";
 import { InjectRedis } from "@liaoliaots/nestjs-redis";
 import { Request } from "express";
@@ -37,7 +37,7 @@ export class SubscriptionLengthGuard implements CanActivate {
         }
         throw new UnauthorizedException();
       }),
-      first()
+      take(1)
     );
   }
 }

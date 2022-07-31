@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Header, Headers, Param, Patch, Post, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from "@nestjs/common";
 
-import { first, Observable } from "rxjs";
+import { Observable, take } from "rxjs";
 
 import { SubscriptionService } from "./subscription.service";
 
@@ -39,7 +39,7 @@ export class SubscriptionController {
     @Headers("x-kuueri-tasks-project") pId: string
   ): Observable<Record<string, SafeAny>> {
     return this.subscription.valueChanges(id, pId).pipe(
-      first()
+      take(1)
     );
   }
 
@@ -52,7 +52,7 @@ export class SubscriptionController {
     @Headers("x-kuueri-tasks-project") pId: string
   ): Observable<Array<TasksTimeline>> {
     return this.subscription.timelineChanges(id, pId).pipe(
-      first()
+      take(1)
     );
   }
 
@@ -66,7 +66,7 @@ export class SubscriptionController {
     @Headers("x-kuueri-tasks-project") pId: string
   ): Observable<Queued> {
     return this.subscription.subscribe(body, pId).pipe(
-      first()
+      take(1)
     );
   }
 
@@ -80,7 +80,7 @@ export class SubscriptionController {
     @Headers("x-kuueri-tasks-project") pId: string
   ): Observable<{ [f: string]: string }> {
     return this.subscription.pause(id, pId).pipe(
-      first()
+      take(1)
     );
   }
 
@@ -94,7 +94,7 @@ export class SubscriptionController {
     @Headers("x-kuueri-tasks-project") pId: string
   ): Observable<Queued> {
     return this.subscription.resume(id, pId).pipe(
-      first()
+      take(1)
     );
   }
 
@@ -107,7 +107,7 @@ export class SubscriptionController {
     @Headers("x-kuueri-tasks-project") pId: string
   ): Observable<Dequeue> {
     return this.subscription.unsubscribe(id, pId).pipe(
-      first()
+      take(1)
     );
   }
 
@@ -120,7 +120,7 @@ export class SubscriptionController {
     @Headers("x-kuueri-tasks-project") pId: string
   ): Observable<{ [f: string]: string }> {
     return this.subscription.purge(id, pId).pipe(
-      first()
+      take(1)
     );
   }
 }

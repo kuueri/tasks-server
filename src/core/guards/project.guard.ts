@@ -1,7 +1,7 @@
 import { BadRequestException, CanActivate, ConflictException, ExecutionContext, Injectable, InternalServerErrorException } from "@nestjs/common";
 
 import { isEmpty, toSafeInteger, toString, trim } from "lodash";
-import { defer, map, Observable } from "rxjs";
+import { defer, map, Observable, take } from "rxjs";
 import { InjectRedis } from "@liaoliaots/nestjs-redis";
 import { Request } from "express";
 
@@ -38,7 +38,8 @@ export class ProjectGuard implements CanActivate {
           return true;
         }
         throw new InternalServerErrorException();
-      })
+      }),
+      take(1)
     );
   }
 }

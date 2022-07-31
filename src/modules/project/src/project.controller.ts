@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Header, Headers, Post, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 
-import { first, Observable } from "rxjs";
+import { Observable, take } from "rxjs";
 
 import { ThrottlerBehindProxyGuard } from "src/core/guards/throttler-behind-proxy.guard";
 import { SubscriptionGuard } from "src/core/guards/subscription.guard";
@@ -29,7 +29,7 @@ export class ProjectController {
   @UseInterceptors(ASCInterceptor)
   public info(@Headers("x-kuueri-tasks-project") pId: string): Observable<{ [f: string]: SafeAny }> {
     return this.project.info(pId).pipe(
-      first()
+      take(1)
     );
   }
 
@@ -40,7 +40,7 @@ export class ProjectController {
   @UseGuards(ProjectGuard, ThrottlerBehindProxyGuard)
   public register(@Body("email", ParseEmailPipe) email: string ): Observable<{ [f: string]: string }> {
     return this.project.register({ email }).pipe(
-      first()
+      take(1)
     );
   }
 }
