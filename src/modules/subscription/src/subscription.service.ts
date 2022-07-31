@@ -1636,6 +1636,9 @@ export class SubscriptionService implements OnApplicationBootstrap {
           }
         }
         await BATCH_3.exec();
+
+        keys = null!;
+        recordsQueue = null!;
       }
     }
   }
