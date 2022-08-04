@@ -5,15 +5,16 @@ import { readFileSync } from "fs";
 import { toString } from "lodash";
 import { join } from "path";
 
-import { SafeAny } from "../types/empty";
-
 export default async () => {
   const logger = new Logger();
+
   try {
     const buffer = readFileSync(join(process.cwd(), "resource/config/config.json"));
-    const data = await Promise.resolve(buffer.toString());
+    const data = buffer.toString();
+
     logger.log("Configuration loaded from local");
-    return JSON.parse(data) as Readonly<{ [f: string]: SafeAny }>;
+
+    return Promise.resolve(JSON.parse(data));
   } catch (e) {
     try {
       // Construct an instance of SecretManagerServiceClient
@@ -31,11 +32,14 @@ export default async () => {
       const data = version.payload?.data?.toString();
       if (data) {
         logger.log("Configuration loaded from Secret Manager");
-        return JSON.parse(data) as Readonly<{ [f: string]: SafeAny }>;
+
+        return JSON.parse(data);
       }
+
       return {};
-    } catch (errorClient) {
-      logger.warn(toString(errorClient));
+    } catch (ee) {
+      logger.warn(toString(ee));
+
       return {};
     }
   }

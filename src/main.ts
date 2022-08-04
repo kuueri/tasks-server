@@ -20,10 +20,10 @@ async function bootstrap(): Promise<void> {
 
   // Starts the application
   const config = app.get(ConfigService);
-  const PORT = +config.get("PORT");
+  const PORT = +config.get("PORT") || 8202;
 
   await app.listen(PORT);
-  console.log("Server listening on port " + PORT);
+  console.log("Server listening on port", PORT);
 }
 
 bootstrap();

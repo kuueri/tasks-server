@@ -19,7 +19,7 @@ import { join } from "path";
         maxBodyLength: config.get("MODULE.HTTP.MAX_BODY_LENGTH"),
         headers: {
           "accept": "application/json",
-          "content-Type": "application/json"
+          "content-type": "application/json"
         },
         httpAgent: new HTTPAgent({
           keepAlive: true
