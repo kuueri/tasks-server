@@ -6,6 +6,7 @@
 /resources/**/*.crt
 /resources/**/*.key
 /node_modules
+/data
 /dist
 
 # Logs
