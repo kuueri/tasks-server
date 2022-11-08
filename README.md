@@ -160,13 +160,13 @@ Contoh sederhana permintaan sebuah Task
 ```
 Contoh diatas dapat disimpulkan bahwa. Task akan dieksekusi setelah menunggu selama 1 hari. Jika Task mendapatkan respon error `4xx~5xx`, lakukan eksekusi kembali sebanyak 6x dengan interval setiap eksekusinya selama 1 jam.
 
-Jika `retryExponential = true`, yang akan terjadi adalah `retryInterval * retryCount`. Alhasil interval setiap eksekusinya akan bertambah.
+Jika `retryExponential = true`, yang akan terjadi adalah `retryInterval * retryCount`. Maka interval setiap eksekusinya akan bertambah.
 
-`// 1h = 3600000ms`
+1h = 3600000ms
 
-`Retry ke-1: (3600000 x 1) = 3600000ms retryInterval`
-`Retry ke-2: (3600000 x 2) = 7200000ms retryInterval`
-`Retry ke-3: (3600000 x 3) = 10800000ms retryInterval`
+Retry ke-1: (3600000 x 1) = 3600000ms retryInterval
+Retry ke-2: (3600000 x 2) = 7200000ms retryInterval
+Retry ke-3: (3600000 x 3) = 10800000ms retryInterval
 
 Dan seterusnya...
 
