@@ -164,8 +164,8 @@ Jika `retryExponential = true`, yang akan terjadi adalah `retryInterval * retryC
 
 1h = 3600000ms
 
-Retry ke-1: (3600000 x 1) = 3600000ms retryInterval
-Retry ke-2: (3600000 x 2) = 7200000ms retryInterval
+Retry ke-1: (3600000 x 1) = 3600000ms retryInterval\
+Retry ke-2: (3600000 x 2) = 7200000ms retryInterval\
 Retry ke-3: (3600000 x 3) = 10800000ms retryInterval
 
 Dan seterusnya...
