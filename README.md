@@ -3,7 +3,7 @@
 
 
 ### Definisi
-**Kuueri Tasks** adalah layanan eksekusi terkelola untuk kebutuhan pengiriman atau distribusi tugas. Secara teknis, *Task* merupakan sebuah objek yang merepresentasikan sebuah sumber eksekusi sekali pakai. Kamu dapat melakukan permintaan tugas ke **Kuueri Tasks** yang kemudian akan dieksekusi diwaktu kedepan. Selama kamu mempunyai layanan API, **Kuueri Tasks** akan mengeksekusi dan mengirimkan tugasnya ke URL target yang sudah ditentukan.
+**Kuueri Tasks** adalah layanan eksekusi terkelola untuk kebutuhan pengiriman atau distribusi tugas. Secara teknis, *Task* merupakan sebuah objek yang merepresentasikan sebuah sumber eksekusi sekali pakai. Kamu dapat melakukan permintaan tugas ke **Kuueri Tasks** yang kemudian akan dieksekusi diwaktu kedepan. Selama kamu mempunyai layanan API, **Kuueri Tasks** akan mengeksekusi dan mengirimkan tugasnya ke URL target yang sudah ditentukan. Port default 8202
 
 ```
 Your app                        Tasks server                Target server
@@ -53,7 +53,7 @@ save 60 10000
     - buat file `config.json` di `./resource/config/` - *required*
     - buat file `redis.conf` di `./resource/config/` - *required*
 3. `npm run build`
-4. Install **Kuueri Tasks** dan **Redis** `docker-compose -f ./docker-compose.yml up -d`. Gunakan `/bin/sh` untuk masuk ke OS
+4. Install **Kuueri Tasks** dan **Redis** `docker-compose -p krtasks up -d`
 5. Proses registrasi ke `/[VERSION]/register` `POST` masukkan body `{ email: [YOUR EMAIL] }`
 6. Atur permintaan *headers*
     - buat *headers* `authorization: Bearer [TOKEN]`
