@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, PayloadTooLargeException, UnauthorizedException } from "@nestjs/common";
 
+import { isEmpty, toSafeInteger, toString, trim } from "lodash";
 import { defer, map, Observable, take } from "rxjs";
-import { toSafeInteger, toString } from "lodash";
 import { InjectRedis } from "@liaoliaots/nestjs-redis";
 import { Request } from "express";
 
@@ -19,6 +19,10 @@ export class SubscriptionLengthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request>();
     const projectId = toString(req.headers["x-kuueri-tasks-project"]);
 
+    if (isEmpty(trim(projectId))) {
+      throw new UnauthorizedException();
+    }
+
     const BATCH = this.redis.pipeline();
 
     BATCH.select(0);
@@ -30,7 +34,7 @@ export class SubscriptionLengthGuard implements CanActivate {
         if (v) {
           const queuesLength = Math.abs(toSafeInteger(v[1][1]));
           const limit = toSafeInteger(v[2][1]);
-          if (queuesLength <= limit) {
+          if (queuesLength < limit) {
             return true;
           }
           throw new PayloadTooLargeException();
