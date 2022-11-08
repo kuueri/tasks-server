@@ -1,6 +1,6 @@
-resource/config/*.conf
-resource/config/*.json
-node_modules
+/node_modules
+/data
+/tmp
 
 Dockerfile*
 docker-compose*

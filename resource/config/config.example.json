@@ -1,5 +1,5 @@
 {
-  "PORT": 8200,
+  "PORT": 8202,
   "LEVEL": "DEVELOPMENT",
   "MODULE": {
     "HTTP": {
@@ -16,12 +16,12 @@
       "LIMIT": 1000
     },
     "CRYPTO": {
-      "KEY": ""
+      "KEY": "YOUR_RANDOM_STRING"
     }
   },
   "DATABASE": {
     "REDIS": {
-      "HOST": "redis-server",
+      "HOST": "redis_tasks_server",
       "PORT": 6379,
       "USERNAME": "dev",
       "PASSWORD": "devpassword",

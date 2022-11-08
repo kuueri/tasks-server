@@ -1,14 +1,17 @@
 FROM node:16-alpine
 
-RUN npm install pm2 -g
+ENV NODE_ENV=production
 
-WORKDIR /usr/app/tasks
+WORKDIR /app
 
-COPY package*.json .
-COPY app.yml .
-COPY LICENSE .
+COPY package*.json ./
+COPY dist ./dist/
+# WARNING
+# DO NOT PUSH IMAGE TO PUBLIC REPOSITORY
+COPY resource ./resource/
 
-RUN npm install --omit=dev
+RUN npm ci
 
-COPY resource /usr/app/tasks/resource
-COPY dist /usr/app/tasks/dist
+EXPOSE 8202
+
+CMD ["node", "/app/dist/main.js"]
