@@ -36,8 +36,8 @@ save 60 10000
 1. *HTTP target*
     - Mengeksekusi menggunakan HTTP API
 2. *Retry/Repeat mechanism*
-    - *Retry*: Mengeksekusi kembali ketika mendapatkan respon error
-    - *Repeat*: Mengeksekusi kembali ketika mendapatkan respon sukses
+    - *Retry*: Mengeksekusi kembali ketika mendapatkan respon error 4xx~5xx
+    - *Repeat*: Mengeksekusi kembali ketika mendapatkan respon sukses 2xx
 3. *Scheduling*
     - Atur eksekusi *delay* hingga eksekusi diwaktu tertentu
 
@@ -53,7 +53,7 @@ save 60 10000
     - buat file `config.json` di `./resource/config/` - *required*
     - buat file `redis.conf` di `./resource/config/` - *required*
 3. `npm run build`
-4. Install **Kuueri Tasks** dan **Redis** `docker-compose -p krtasks up -d`
+4. Install **Kuueri Tasks** dan **Redis** `docker compose -p krtasks up -d`
 5. Proses registrasi ke `/[VERSION]/register` `POST` masukkan body `{ email: [YOUR EMAIL] }`
 6. Atur permintaan *headers*
     - buat *headers* `authorization: Bearer [TOKEN]`
@@ -81,8 +81,94 @@ Terdapat dependensi tambahan `@google-cloud/secret-manager` pada **Kuueri Tasks 
 - `/[VERSION]/resume/[QUEUE ID]` **`PATCH`** - Melanjutkan eksekusi
 - `/[VERSION]/unsubscribe/[QUEUE ID]` **`PATCH`** - Membatalkan eksekusi
 
-***Untuk dokumentasi selanjutnya masih dalam proses...
+Permintaan subscribe:
 
+```
+{
+    "httpRequest": {
+        "url": string;
+        "data?": string base64;
+        "method": "DELETE" | "PATCH" | "POST" | "PUT";
+        "params?": {
+            [f: string]: string;
+        };
+        "headers?": {
+            [f: string]: string;
+        };
+    },
+    "config?": {
+        // Atur waktu eksekusi secara spesifik
+        // Format ms unix epoch
+        // default: EMPTY
+        "executionAt?": number;
+        // Atur waktu delay eksekusi
+        // Format ms
+        // default: 1
+        "executionDelay?": string | number;
+        // Atur jumlah eksekusi ketika mendapatkan respon error 4xx~5xx
+        // min: 0, max: u32
+        // default: 0
+        "retry?": number;
+        // Atur waktu secara spesifik ketika mendapatkan response error 4xx~5xx (retryAt hanya bisa dilakukan 1x retry)
+        // Format ms unix epoch
+        // default: EMPTY
+        "retryAt?": number;
+        // Durasi delay setiap kali eksekusi error
+        // min: 1000, default: 1000
+        "retryInterval?": string | number;
+        // Nilai eksponen dari (retryInterval * retryCount)
+        // default: true
+        "retryExponential?": boolean;
+        // Atur jumlah eksekusi ketika mendapatkan respon sukses 2xx
+        // min: 0, max: 16, default: 0
+        "repeat?": number;
+        // Atur waktu secara spesifik ketika mendapatkan response sukses 2xx (repeatAt hanya bisa dilakukan 1x repeat)
+        // Format ms unix epoch
+        // default: EMPTY
+        "repeatAt?": number;
+        // Durasi interval setiap kali eksekusi sukses
+        // min: 1000, default: 1000
+        "repeatInterval?": string | number;
+        // Nilai eksponen dari (repeatInterval * repeatCount)
+        // default: true
+        "repeatExponential?": boolean;
+        // Jika permintaan waktu lebih lama dari timeout, permintaan HTTP akan dibatalkan
+        // Format ms
+        // min: 1, max: 600000, default: 300000
+        "timeout?": number;
+    }
+}
+
+Nama field yang mempunyai akhiran "At" gunakan format waktu ms unix epoch
+- kunjungi https://currentmillis.com
+```
+
+Contoh sederhana permintaan sebuah Task
+```
+{
+    "httpRequest": {
+        "url": "https://your.backend.com/api",
+        "method": "POST"
+    },
+    "config": {
+        "executionDelay": "1d",
+        "retry": 6,
+        "retryInterval": "1h",
+        "retryExponential": false
+    }
+}
+```
+Contoh diatas dapat disimpulkan bahwa. Task akan dieksekusi setelah menunggu selama 1 hari. Jika Task mendapatkan respon error `4xx~5xx`, lakukan eksekusi kembali sebanyak 6x dengan interval setiap eksekusinya selama 1 jam.
+
+Jika `retryExponential = true`, yang akan terjadi adalah `retryInterval * retryCount`. Alhasil interval setiap eksekusinya akan bertambah.
+
+`// 1h = 3600000ms`
+
+`Retry ke-1: (3600000 x 1) = 3600000ms retryInterval`
+`Retry ke-2: (3600000 x 2) = 7200000ms retryInterval`
+`Retry ke-3: (3600000 x 3) = 10800000ms retryInterval`
+
+Dan seterusnya...
 
 ### Ekosistem
 1. Kuueri Tasks Server
@@ -92,7 +178,8 @@ Terdapat dependensi tambahan `@google-cloud/secret-manager` pada **Kuueri Tasks 
 ### Catatan Penting
 1. Setiap permintaan ke **Kuueri Tasks** terdapat proses *authorization*. Jangan lakukan permintaan dari sisi *client/frontend*
 2. Secara default, terdapat limitasi panjang antrian *(task in queue)* sebanyak `1000`
-3. Ketika masuk ke **Redis** database, hindari permintaan seperti: `FLUSHALL` `FLUSHDB` `SHUTDOWN` `CONFIG` `BGREWRITEAOF` `BGSAVE` `RENAME` `DEBUG`. Gunakan [Redis ACL](https://redis.io/docs/manual/security/acl/) untuk mengatur *role user*
+3. Atur zona waktu server ke format UTC +00:00
+4. Ketika masuk ke **Redis** database, hindari permintaan seperti: `FLUSHALL` `FLUSHDB` `SHUTDOWN` `CONFIG` `BGREWRITEAOF` `BGSAVE` `RENAME` `DEBUG`. Gunakan [Redis ACL](https://redis.io/docs/manual/security/acl/) untuk mengatur *role user*
 
 
 ### Lisensi
