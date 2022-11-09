@@ -83,68 +83,72 @@ Terdapat dependensi tambahan `@google-cloud/secret-manager` pada **Kuueri Tasks 
 
 Permintaan subscribe:
 
-```
-{
-    "httpRequest": {
-        "url": string;
-        "data?": string base64;
-        "method": "DELETE" | "PATCH" | "POST" | "PUT";
-        "params?": {
-            [f: string]: string;
-        };
-        "headers?": {
-            [f: string]: string;
-        };
-    },
-    "config?": {
-        // Atur waktu eksekusi secara spesifik
-        // Format ms unix epoch
-        // default: EMPTY
-        "executionAt?": number;
-        // Atur waktu delay eksekusi
-        // Format ms
-        // default: 1
-        "executionDelay?": string | number;
-        // Atur jumlah eksekusi ketika mendapatkan respon error 4xx~5xx
-        // min: 0, max: u32
-        // default: 0
-        "retry?": number;
-        // Atur waktu secara spesifik ketika mendapatkan response error 4xx~5xx (retryAt hanya bisa dilakukan 1x retry)
-        // Format ms unix epoch
-        // default: EMPTY
-        "retryAt?": number;
-        // Durasi delay setiap kali eksekusi error
-        // min: 1000, default: 1000
-        "retryInterval?": string | number;
-        // Nilai eksponen dari (retryInterval * retryCount)
-        // default: true
-        "retryExponential?": boolean;
-        // Atur jumlah eksekusi ketika mendapatkan respon sukses 2xx
-        // min: 0, max: 16, default: 0
-        "repeat?": number;
-        // Atur waktu secara spesifik ketika mendapatkan response sukses 2xx (repeatAt hanya bisa dilakukan 1x repeat)
-        // Format ms unix epoch
-        // default: EMPTY
-        "repeatAt?": number;
-        // Durasi interval setiap kali eksekusi sukses
-        // min: 1000, default: 1000
-        "repeatInterval?": string | number;
-        // Nilai eksponen dari (repeatInterval * repeatCount)
-        // default: true
-        "repeatExponential?": boolean;
-        // Jika permintaan waktu lebih lama dari timeout, permintaan HTTP akan dibatalkan
-        // Format ms
-        // min: 1, max: 600000, default: 300000
-        "timeout?": number;
-    }
+```typescript
+type TasksReq = {
+    httpRequest: TasksHTTP;
+    config: TasksConfig;
 }
 
-Nama field yang mempunyai akhiran "At" gunakan format waktu ms unix epoch
-- kunjungi https://currentmillis.com
+type TasksHTTP = {
+    url: string;
+    data?: string base64;
+    method: "DELETE" | "PATCH" | "POST" | "PUT";
+    params?: {
+        [f: string]: string;
+    };
+    headers?: {
+        [f: string]: string;
+    };
+}
+
+type TasksConfig = {
+    // Atur waktu eksekusi secara spesifik
+    // Format ms unix epoch
+    // default: EMPTY
+    executionAt?: number;
+    // Atur waktu delay eksekusi
+    // Format string "30m", "1h", "2.5hrs", "1d" | ms
+    // default: 1
+    executionDelay?: string | number;
+    // Atur jumlah eksekusi ketika mendapatkan respon error 4xx~5xx
+    // min: 0, max: u32
+    // default: 0
+    retry?: number;
+    // Atur waktu secara spesifik ketika mendapatkan response error 4xx~5xx (retryAt hanya bisa dilakukan 1x retry)
+    // Format ms unix epoch
+    // default: EMPTY
+    retryAt?: number;
+    // Durasi delay setiap kali eksekusi error
+    // min: 1000, default: 1000
+    retryInterval?: string | number;
+    // Nilai eksponen dari (retryInterval * retryCount)
+    // default: true
+    retryExponential?: boolean;
+    // Atur jumlah eksekusi ketika mendapatkan respon sukses 2xx
+    // min: 0, max: 16, default: 0
+    repeat?: number;
+    // Atur waktu secara spesifik ketika mendapatkan response sukses 2xx (repeatAt hanya bisa dilakukan 1x repeat)
+    // Format ms unix epoch
+    // default: EMPTY
+    repeatAt?: number;
+    // Durasi interval setiap kali eksekusi sukses
+    // min: 1000, default: 1000
+    repeatInterval?: string | number;
+    // Nilai eksponen dari (repeatInterval * repeatCount)
+    // default: true
+    repeatExponential?: boolean;
+    // Jika permintaan waktu lebih lama dari timeout, permintaan HTTP akan dibatalkan
+    // Format ms
+    // min: 1, max: 600000, default: 300000
+    timeout?: number;
+}
+
+// Field yang mempunyai akhiran "At" executionAt, retryAt, repeatAt gunakan format waktu ms unix epoch kunjungi https://currentmillis.com
+// Contoh: 08-11-2022 Pukul 21:00, Maka ms = 1667916000000
 ```
 
-Contoh sederhana permintaan sebuah Task
-```
+Contoh permintaan sebuah Task
+```json
 {
     "httpRequest": {
         "url": "https://your.backend.com/api",
@@ -162,13 +166,17 @@ Contoh diatas dapat disimpulkan bahwa. Task akan dieksekusi setelah menunggu sel
 
 Jika `retryExponential = true`, yang akan terjadi adalah `retryInterval * retryCount`. Maka interval setiap eksekusinya akan bertambah.
 
+
+```
 1h = 3600000ms
 
-Retry ke-1: (3600000 x 1) = 3600000ms retryInterval\
-Retry ke-2: (3600000 x 2) = 7200000ms retryInterval\
+Retry ke-1: (3600000 x 1) = 3600000ms retryInterval
+Retry ke-2: (3600000 x 2) = 7200000ms retryInterval
 Retry ke-3: (3600000 x 3) = 10800000ms retryInterval
 
 Dan seterusnya...
+```
+
 
 ### Ekosistem
 1. Kuueri Tasks Server
