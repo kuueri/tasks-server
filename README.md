@@ -3,7 +3,7 @@
 
 
 ### Definisi
-**Kuueri Tasks** adalah layanan eksekusi terkelola untuk kebutuhan pengiriman atau distribusi tugas. Secara teknis, *Task* merupakan sebuah objek yang merepresentasikan sebuah sumber eksekusi sekali pakai. Kamu dapat melakukan permintaan tugas ke **Kuueri Tasks** yang kemudian akan dieksekusi diwaktu kedepan. Selama kamu mempunyai layanan API, **Kuueri Tasks** akan mengeksekusi dan mengirimkan tugasnya ke URL target yang sudah ditentukan. Port default 8202
+**Kuueri Tasks** adalah layanan eksekusi terkelola untuk kebutuhan pengiriman atau distribusi tugas. Secara teknis, *Task* merupakan sebuah objek yang merepresentasikan sebuah sumber eksekusi sekali pakai. Kamu dapat melakukan permintaan tugas ke **Kuueri Tasks** yang kemudian akan dieksekusi diwaktu kedepan. Selama kamu mempunyai layanan API, **Kuueri Tasks** akan mengeksekusi dan mengirimkan tugasnya ke URL target yang sudah ditentukan. Port default `8202`
 
 ```
 Your app                        Tasks server                Target server
@@ -17,13 +17,13 @@ Perlu diperhatikan bahwa, **Kuueri Tasks** menggunakan **Redis** sebagai databas
 
 ### Struktur dan Tipe Data
 Berikut adalah struktur dan tipe data yang digunakan **Kuueri Tasks**:
-1. **Kuueri Tasks** menggunakan tipe data [List](https://redis.io/docs/manual/data-types/#lists), [Sets](https://redis.io/docs/manual/data-types/#sets), dan [Hashes](https://redis.io/docs/manual/data-types/#hashes)
+1. **Kuueri Tasks** menggunakan tipe data [List](https://redis.io/docs/data-types/#lists), [Sets](https://redis.io/docs/data-types/#sets), dan [Hashes](https://redis.io/docs/data-types/#hashes)
 2. **Kuueri Tasks** menggunakan `0~3` *index* database
     - *index* `0` menyimpan data terkait *authorization*
     - *index* `1` menyimpan data terkait eksekusi
     - *index* `2` menyimpan data terkait konfigurasi eksekusi
     - *index* `3` menyimpan data terkait *timeline* eksekusi
-3. **Kuueri Tasks** mengoptimalkan proses CRUD dengan menggunakan [Redis Pipelining](https://redis.io/docs/manual/pipelining/)
+3. **Kuueri Tasks** mengoptimalkan proses CRUD dengan menggunakan [Redis Pipelining](https://redis.io/docs/manual/pipelining)
 4. **Kuueri Tasks** mengaktifkan fitur [Snapshotting](https://github.com/redis/redis/blob/6.2.7/redis.conf#L362) pada **Redis** sebagai backup
 ```
 save 3600 1
@@ -86,7 +86,7 @@ Permintaan subscribe:
 ```typescript
 type TasksReq = {
     httpRequest: TasksHTTP;
-    config: TasksConfig;
+    config?: TasksConfig;
 }
 
 type TasksHTTP = {
