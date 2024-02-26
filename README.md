@@ -1,5 +1,4 @@
 ## Kuueri Tasks Server
-*Path version* `/v1beta/**`
 
 
 ### Definisi
@@ -12,13 +11,13 @@ Your app                        Tasks server                Target server
                                 [QUEUE] <------------------ [SERVER]
 ```
 
-Perlu diperhatikan bahwa, **Kuueri Tasks** menggunakan **Redis** sebagai database untuk menyimpan riwayat data eksekusi. Secara default, riwayat data eksekusi disimpan sementara selama 3 hari. Gunakan layanan kamu sendiri untuk menyimpan riwayat data eksekusi tersebut secara permanen.
+Perlu diperhatikan bahwa **Kuueri Tasks** menggunakan **Redis** sebagai database untuk menyimpan riwayat data eksekusi. Secara default, riwayat data eksekusi disimpan sementara selama 3 hari. Gunakan layanan kamu sendiri untuk menyimpan riwayat data eksekusi tersebut secara permanen.
 
 
 ### Struktur dan Tipe Data
 Berikut adalah struktur dan tipe data yang digunakan **Kuueri Tasks**:
 1. **Kuueri Tasks** menggunakan tipe data [List](https://redis.io/docs/data-types/#lists), [Sets](https://redis.io/docs/data-types/#sets), dan [Hashes](https://redis.io/docs/data-types/#hashes)
-2. **Kuueri Tasks** menggunakan `0~3` *index* database
+2. **Kuueri Tasks** menggunakan `0-3` *index* database
     - *index* `0` menyimpan data terkait *authorization*
     - *index* `1` menyimpan data terkait eksekusi
     - *index* `2` menyimpan data terkait konfigurasi eksekusi
@@ -43,7 +42,7 @@ save 60 10000
 
 
 ### Teknologi
-- [NestJS v8](https://github.com/nestjs/nest/tree/v8.4.7)
+- [NestJS v10](https://github.com/nestjs/nest/tree/v8.4.7)
 - [Redis v6](https://github.com/redis/redis/tree/6.2.7)
 
 
@@ -53,15 +52,15 @@ save 60 10000
     - buat file `config.json` di `./resource/config/` - *required*
     - buat file `redis.conf` di `./resource/config/` - *required*
 3. `npm run build`
-4. Install **Kuueri Tasks** dan **Redis** `docker compose -p krtasks up -d`
-5. Proses registrasi ke `/[VERSION]/register` `POST` masukkan body `{ email: [YOUR EMAIL] }`
+4. Install **Kuueri Tasks** dan **Redis** `docker compose -p krtasks up -d --build`
+5. Proses registrasi ke `/v1beta/register` `POST` masukkan body `{ email: <YOUR EMAIL> }`
 6. Atur permintaan *headers*
-    - buat *headers* `authorization: Bearer [TOKEN]`
-    - buat *headers* `x-kuueri-tasks-project: [PROJECT ID]`
+    - buat *headers* `authorization: Bearer <TOKEN>`
+    - buat *headers* `x-kuueri-tasks-project: <PROJECT ID>`
 
 INFO: `npm run dev` untuk proses *development*
 
-### Langkah Lanjutan
+### Langkah Lanjutan (Opsional)
 Terdapat dependensi tambahan `@google-cloud/secret-manager` pada **Kuueri Tasks Server** dengan tujuan ketika masuk ke level *production*, file `config.json` akan disimpan ke dalam [Cloud Secret Manager](https://cloud.google.com/secret-manager). Cara ini akan jauh lebih aman karena file `config.json` tidak berada disisi server. Untuk memulai menggunakan layanan **Cloud Secret Manager**, pastikan kamu sudah menambahkan *principal* pada nama *Secret* dengan *Service Account* yang terhubung *role* sebagai *Secret Manager Secret Accessor*. Simpan file `service-account.json` dimanapun dan buat file `.docker.env`.
 
 ***Jika **Kuueri Tasks Server** di deploy ke VM, abaikan `.docker.env` masukkan `TASKS_KEY_FILENAME` dan `TASKS_VERSION` ke dalam `~/.bashrc`
@@ -69,17 +68,17 @@ Terdapat dependensi tambahan `@google-cloud/secret-manager` pada **Kuueri Tasks 
 
 ### Dokumentasi *API Reference*
 *Project module*:
-- `/[VERSION]/info` **`GET`** - Mendapatkan info *project*
-- `/[VERSION]/register` **`POST`** - Registrasi **Kuueri Tasks** *project*
+- `/v1beta/info` **`GET`** - Mendapatkan info *project*
+- `/v1beta/register` **`POST`** - Registrasi **Kuueri Tasks** *project*
 
 *Subscription module*:
-- `/[VERSION]/queues/[QUEUE ID]` **`GET`** - Mendapatkan informasi eksekusi
-- `/[VERSION]/queues/[QUEUE ID]` **`DELETE`** - Menghapus riwayat informasi eksekusi
-- `/[VERSION]/queues/[QUEUE ID]/timeline` **`GET`** - Mendapatkan informasi *timeline* eksekusi
-- `/[VERSION]/subscribe` **`POST`** - Registrasi eksekusi
-- `/[VERSION]/pause/[QUEUE ID]` **`PATCH`** - Memberhentikan sejenak eksekusi
-- `/[VERSION]/resume/[QUEUE ID]` **`PATCH`** - Melanjutkan eksekusi
-- `/[VERSION]/unsubscribe/[QUEUE ID]` **`PATCH`** - Membatalkan eksekusi
+- `/v1beta/queues/<QUEUE ID>` **`GET`** - Mendapatkan informasi eksekusi
+- `/v1beta/queues/<QUEUE ID>` **`DELETE`** - Menghapus riwayat informasi eksekusi
+- `/v1beta/queues/<QUEUE ID>/timeline` **`GET`** - Mendapatkan informasi *timeline* eksekusi
+- `/v1beta/subscribe` **`POST`** - Registrasi eksekusi
+- `/v1beta/pause/<QUEUE ID>` **`PATCH`** - Memberhentikan sejenak eksekusi
+- `/v1beta/resume/<QUEUE ID>` **`PATCH`** - Melanjutkan eksekusi
+- `/v1beta/unsubscribe/<QUEUE ID>` **`PATCH`** - Membatalkan eksekusi
 
 Permintaan subscribe:
 
@@ -114,7 +113,7 @@ type TasksConfig = {
     // min: 0, max: u32
     // default: 0
     retry?: number;
-    // Atur waktu secara spesifik ketika mendapatkan response error 4xx~5xx (retryAt hanya bisa dilakukan 1x retry)
+    // Atur waktu secara spesifik ketika mendapatkan response error 4xx~5xx (retryAt hanya bisa dilakukan 1x)
     // Format ms unix epoch
     // default: EMPTY
     retryAt?: number;
@@ -127,7 +126,7 @@ type TasksConfig = {
     // Atur jumlah eksekusi ketika mendapatkan respon sukses 2xx
     // min: 0, max: 16, default: 0
     repeat?: number;
-    // Atur waktu secara spesifik ketika mendapatkan response sukses 2xx (repeatAt hanya bisa dilakukan 1x repeat)
+    // Atur waktu secara spesifik ketika mendapatkan response sukses 2xx (repeatAt hanya bisa dilakukan 1x)
     // Format ms unix epoch
     // default: EMPTY
     repeatAt?: number;
@@ -145,6 +144,22 @@ type TasksConfig = {
 
 // Field yang mempunyai akhiran "At" executionAt, retryAt, repeatAt gunakan format waktu ms unix epoch kunjungi https://currentmillis.com
 // Contoh: 08-11-2022 Pukul 21:00, Maka ms = 1667916000000
+```
+
+Contoh permintaan data ke base64 di NodeJS
+```typescript
+// Kode kamu
+const user = {
+    id: 111,
+    name: "admin"
+};
+const payload = {
+    httpRequest: {
+        url: "https://your.backend.com/api",
+        method: "POST",
+        data: Buffer.from(JSON.stringify(user)).toString("base64")
+    }
+}
 ```
 
 Contoh permintaan sebuah Task
@@ -168,26 +183,22 @@ Jika `retryExponential = true`, yang akan terjadi adalah `retryInterval * retryC
 
 
 ```
+retryInterval = 1h
 1h = 3600000ms
 
-Retry ke-1: (3600000 x 1) = 3600000ms retryInterval
-Retry ke-2: (3600000 x 2) = 7200000ms retryInterval
-Retry ke-3: (3600000 x 3) = 10800000ms retryInterval
+Retry ke-1, 3600000 * 1 = 3600000ms
+Retry ke-2, 3600000 * 2 = 7200000ms
+Retry ke-3, 3600000 * 3 = 10800000ms
 
 Dan seterusnya...
 ```
 
 
-### Ekosistem
-1. Kuueri Tasks Server
-2. Kuueri Tasks WebAppTesting - *soon*
-
-
 ### Catatan Penting
-1. Setiap permintaan ke **Kuueri Tasks** terdapat proses *authorization*. Jangan lakukan permintaan dari sisi *client/frontend*
+1. Setiap permintaan ke **Kuueri Tasks** terdapat proses *authorization*. Jangan lakukan permintaan dari sisi *frontend*
 2. Secara default, terdapat limitasi panjang antrian *(task in queue)* sebanyak `1000`
 3. Atur zona waktu server ke format UTC +00:00
-4. Ketika masuk ke **Redis** database, hindari permintaan seperti: `FLUSHALL` `FLUSHDB` `SHUTDOWN` `CONFIG` `BGREWRITEAOF` `BGSAVE` `RENAME` `DEBUG`. Gunakan [Redis ACL](https://redis.io/docs/manual/security/acl/) untuk mengatur *role user*
+4. Jika masuk ke **Redis** database, hindari permintaan seperti: `FLUSHALL` `FLUSHDB` `SHUTDOWN` `CONFIG` `BGREWRITEAOF` `BGSAVE` `RENAME` `DEBUG`. Gunakan [Redis ACL](https://redis.io/docs/manual/security/acl/) untuk mengatur *role user*
 
 
 ### Lisensi

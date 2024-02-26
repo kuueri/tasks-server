@@ -15,7 +15,8 @@ export class UtilService {
         : 500;
   }
 
-  public sortFields<T>(object: T): T {
+  public sortFields<T extends unknown>(object: T): T {
+    // @ts-ignore
     return Object.keys(object).sort().reduce((acc, key) => {
       return {
         ...acc,
@@ -25,11 +26,13 @@ export class UtilService {
     }, {}) as T;
   }
 
-  public toTypes<T>(field: T): T {
+  public toTypes<T extends unknown>(field: T): T {
     if (isEmpty(field)) {
       return field;
     }
+    // @ts-ignore
     const keys = Object.keys(field);
+    // @ts-ignore
     const values = Object.values(field) as Array<string>;
     const typesValue = values.map(v => {
       // On empty

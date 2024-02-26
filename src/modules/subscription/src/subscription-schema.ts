@@ -53,7 +53,7 @@ export class SubscriptionSchema {
                 "string.empty": "Is not allowed to be empty",
                 "string.base64": "Must be a valid base64 string"
               })
-              .base64({ paddingRequired: false })
+              .base64()
               .custom((value, helpers) => {
                 if (isEmpty(trim(value))) {
                   return helpers.error("string.base");

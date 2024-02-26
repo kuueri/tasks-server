@@ -1,5 +1,4 @@
-version: "3"
-
+version: "3.9"
 services:
   redis:
     hostname: redis_tasks_server
@@ -20,7 +19,7 @@ services:
           cpus: "1"
           memory: 1024M
         reservations:
-          cpus: "1"
+          cpus: "0.5"
           memory: 512M
   tasks:
     build:
@@ -42,8 +41,7 @@ services:
           cpus: "1"
           memory: 1024M
         reservations:
-          cpus: "1"
+          cpus: "0.5"
           memory: 512M
-
 networks:
   net:

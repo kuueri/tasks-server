@@ -36,7 +36,12 @@ export class ProjectController {
   @Post("/register")
   @Header("access-control-allow-methods", "POST")
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  @Throttle(128, 86400)
+  @Throttle({
+    default: {
+      ttl: 86400,
+      limit: 128
+    }
+  })
   @UseGuards(ProjectGuard, ThrottlerBehindProxyGuard)
   public register(@Body("email", ParseEmailPipe) email: string ): Observable<{ [f: string]: string }> {
     return this.project.register({ email }).pipe(

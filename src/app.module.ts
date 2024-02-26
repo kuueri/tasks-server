@@ -48,13 +48,19 @@ import config from "./core/config/config";
       })
     }),
     ThrottlerModule.forRootAsync({
+      imports: [
+        ConfigModule
+      ],
       inject: [
         ConfigService
       ],
-      useFactory: async (config: ConfigService) => ({
-        limit: config.get("MODULE.THROTTLER.LIMIT"),
-        ttl: config.get("MODULE.THROTTLER.TTL")
-      })
+      // @ts-ignore
+      useFactory: (config: ConfigService) => [
+        {
+          limit: config.get<number>("MODULE.THROTTLER.LIMIT"),
+          ttl: config.get<number>("MODULE.THROTTLER.TTL")
+        }
+      ]
     }),
     CoreModule,
     ProjectModule,

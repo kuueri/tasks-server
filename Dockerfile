@@ -1,4 +1,5 @@
-FROM node:16-alpine
+# Sample Dockefile
+FROM node:18-alpine
 
 ENV NODE_ENV=production
 
@@ -10,7 +11,8 @@ COPY dist ./dist/
 # DO NOT PUSH IMAGE TO PUBLIC REPOSITORY
 COPY resource ./resource/
 
-RUN npm ci
+# Add `--force` if npm throw an error
+RUN npm ci --omit=dev
 
 EXPOSE 8202
 
